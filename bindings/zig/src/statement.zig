@@ -200,6 +200,53 @@ pub const Statement = struct {
         return c.turso_statement_parameters_count(self.ptr.?);
     }
 
+    /// Execute a single statement to completion, handling TURSO_IO by calling runIO and retrying. Returns row changes count or TursoError.
+    fn executeSync(self: *Statement) err.TursoError!u64 {
+        if (self.ptr == null) {
+            return err.mapStatus(
+                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                null,
+                self.allocator,
+            );
+        }
+        while (true) {
+            var changes: u64 = 0;
+            var err_ptr: [*:0]const u8 = null;
+            const status_code = c.turso_statement_execute(self.ptr.?, &changes, &err_ptr);
+            return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
+                .TURSO_OK, .TURSO_DONE => changes,
+                .TURSO_IO => {
+                    try self.runIO();
+                    continue;
+                },
+                else => err.mapStatus(status_code, err_ptr, self.allocator),
+            };
+        }
+    }
+
+    /// Step statement execution to completion, handling TURSO_IO by calling runIO and retrying. Returns final status (TURSO_ROW or TURSO_DONE) or TursoError.
+    fn stepSync(self: *Statement) err.TursoError!status.StatusCode {
+        if (self.ptr == null) {
+            return err.mapStatus(
+                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                null,
+                self.allocator,
+            );
+        }
+        while (true) {
+            var err_ptr: [*:0]const u8 = null;
+            const status_code = c.turso_statement_step(self.ptr.?, &err_ptr);
+            return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
+                .TURSO_ROW, .TURSO_DONE => @enumFromInt(status_code),
+                .TURSO_IO => {
+                    try self.runIO();
+                    continue;
+                },
+                else => err.mapStatus(status_code, err_ptr, self.allocator),
+            };
+        }
+    }
+
     /// Get the number of row modifications made by the most recent executed statement.
     pub fn nChange(self: *Statement) i64 {
         if (self.ptr) |p| {
