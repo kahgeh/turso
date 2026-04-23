@@ -3,6 +3,14 @@ const c = @import("c.zig");
 const err = @import("error.zig");
 const statement_mod = @import("statement.zig");
 
+/// Result of preparing the first statement from multi-statement SQL.
+pub const PrepareFirstResult = struct {
+    /// The prepared statement, or null if no statements could be parsed.
+    statement: ?*statement_mod.Statement,
+    /// Byte offset in sql right after the parsed statement.
+    tail_idx: usize,
+};
+
 /// Wrapper around `turso_connection_t` with Zig-friendly lifecycle management.
 pub const Connection = struct {
     ptr: ?*c.turso_connection_t,
@@ -79,6 +87,59 @@ pub const Connection = struct {
             .allocator = self.allocator,
         };
         return statement_wrapper;
+    }
+
+    /// Prepare the first SQL statement from a string that may contain multiple statements.
+    /// Returns null statement if no statements could be parsed, or TursoError on failure.
+    pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
+        if (self.ptr == null) {
+            return err.mapStatus(
+                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                null,
+                self.allocator,
+            );
+        }
+
+        const c_sql = try self.allocator.dupeZ(u8, sql);
+        defer self.allocator.free(c_sql);
+
+        var stmt: ?*c.turso_statement_t = null;
+        var tail_idx: usize = 0;
+        var err_ptr: [*:0]const u8 = null;
+        const status_code = c.turso_connection_prepare_first(self.ptr.?, c_sql, &stmt, &tail_idx, &err_ptr);
+
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, err_ptr, self.allocator);
+        }
+
+        var wrapped_stmt: ?*statement_mod.Statement = null;
+        if (stmt) |s| {
+            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch |e| {
+                var finalize_err: [*:0]const u8 = null;
+                _ = c.turso_statement_finalize(s, &finalize_err);
+                if (finalize_err) |p| {
+                    c.turso_str_deinit(p);
+                }
+                c.turso_statement_deinit(s);
+                var msg_buf: [256]u8 = undefined;
+                const msg = std.fmt.bufPrint(&msg_buf, "failed to allocate Statement: {}", .{e}) catch "failed to allocate Statement";
+                return err.TursoError{
+                    .code = @enumFromInt(@intFromEnum(c.turso_status_code_t.TURSO_ERROR)),
+                    .allocator = self.allocator,
+                    .owned_message = try self.allocator.dupe(u8, msg),
+                };
+            };
+            statement_wrapper.* = statement_mod.Statement{
+                .ptr = s,
+                .allocator = self.allocator,
+            };
+            wrapped_stmt = statement_wrapper;
+        }
+
+        return PrepareFirstResult{
+            .statement = wrapped_stmt,
+            .tail_idx = tail_idx,
+        };
     }
 
     /// Deinitialize and free the connection handle.

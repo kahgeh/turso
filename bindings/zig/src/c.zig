@@ -22,6 +22,7 @@ pub const turso_connection_set_busy_timeout_ms = raw_c.turso_connection_set_busy
 pub const turso_connection_get_autocommit = raw_c.turso_connection_get_autocommit;
 pub const turso_connection_last_insert_rowid = raw_c.turso_connection_last_insert_rowid;
 pub const turso_connection_prepare_single = raw_c.turso_connection_prepare_single;
+pub const turso_connection_prepare_first = raw_c.turso_connection_prepare_first;
 pub const turso_connection_close = raw_c.turso_connection_close;
 pub const turso_connection_deinit = raw_c.turso_connection_deinit;
 
