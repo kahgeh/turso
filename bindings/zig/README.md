@@ -121,3 +121,6 @@ The current test matrix covers:
 - positional and named parameters
 - column metadata ownership
 - multi-statement `prepareFirst()` parsing
+- row value kinds and copied TEXT/BLOB values
+- row-change and last-insert-rowid accounting
+- regression queries for `RETURNING`, joins, subqueries, `ALTER TABLE`, `generate_series`, and JSON helpers
