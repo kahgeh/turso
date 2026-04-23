@@ -44,7 +44,7 @@ test "prepareFirst iterates through multiple statements" {
                 switch (step_status) {
                     .TURSO_ROW => try selected_values.append(stmt_guard.stmt.rowValueInt(0)),
                     .TURSO_DONE => break,
-                    else => return error.UnexpectedStatus,
+                    else => return error.TestUnexpectedResult,
                 }
             }
         }

@@ -96,10 +96,27 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&multi_statement_tests.step);
     const run_multi_statement_tests = b.addRunArtifact(multi_statement_tests);
 
+    const regression_tests = b.addTest(.{
+        .name = "regression-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/regressions.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    regression_tests.root_module.addImport("turso", turso_module);
+    regression_tests.root_module.addIncludePath(b.path("src"));
+    regression_tests.root_module.addObjectFile(sdk_kit_archive);
+    regression_tests.root_module.linkSystemLibrary("c", .{});
+    regression_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&regression_tests.step);
+    const run_regression_tests = b.addRunArtifact(regression_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
     test_step.dependOn(&run_params_tests.step);
     test_step.dependOn(&run_metadata_tests.step);
     test_step.dependOn(&run_multi_statement_tests.step);
+    test_step.dependOn(&run_regression_tests.step);
 }
