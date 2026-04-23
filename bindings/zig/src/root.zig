@@ -4,3 +4,4 @@
 pub const c = @import("c.zig");
 pub const status = @import("status.zig");
 pub const err = @import("error.zig");
+pub const db = @import("database.zig");
