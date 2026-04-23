@@ -1,5 +1,5 @@
-// Turso Zig Binding - root module
-// This package wraps the turso_sdk_kit C ABI for local database usage.
+// Turso Zig Binding root module.
+// Import this package as `@import("turso")` and use the re-exported modules below.
 
 pub const c = @import("c.zig");
 pub const status = @import("status.zig");

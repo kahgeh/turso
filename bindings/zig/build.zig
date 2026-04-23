@@ -3,6 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    // The Zig binding consumes the Rust static archive directly from the workspace build.
     const sdk_kit_archive = b.path("../../target/debug/libturso_sdk_kit.a");
 
     const turso_module = b.addModule("turso", .{
