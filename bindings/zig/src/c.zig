@@ -43,4 +43,10 @@ pub const turso_statement_bind_positional_text = raw_c.turso_statement_bind_posi
 pub const turso_statement_bind_positional_blob = raw_c.turso_statement_bind_positional_blob;
 pub const turso_statement_deinit = raw_c.turso_statement_deinit;
 
+pub const turso_statement_column_count = raw_c.turso_statement_column_count;
+pub const turso_statement_column_name = raw_c.turso_statement_column_name;
+pub const turso_statement_column_decltype = raw_c.turso_statement_column_decltype;
+pub const turso_statement_named_position = raw_c.turso_statement_named_position;
+pub const turso_statement_parameters_count = raw_c.turso_statement_parameters_count;
+
 pub const turso_str_deinit = raw_c.turso_str_deinit;

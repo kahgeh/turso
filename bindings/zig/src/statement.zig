@@ -162,6 +162,44 @@ pub const Statement = struct {
         return value_mod.readBlob(self.ptr.?, index, self.allocator);
     }
 
+    /// Get the column count for the prepared statement.
+    pub fn columnCount(self: *Statement) i64 {
+        if (self.ptr == null) return 0;
+        return c.turso_statement_column_count(self.ptr.?);
+    }
+
+    /// Get the column name at the given index. The returned string is an owned copy allocated with self.allocator; the C-allocated Turso string is freed via turso_str_deinit.
+    pub fn columnName(self: *Statement, index: usize) ![]u8 {
+        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        const ptr = c.turso_statement_column_name(self.ptr.?, index);
+        defer if (ptr) |p| c.turso_str_deinit(p);
+        if (ptr) |p| return try self.allocator.dupe(u8, std.mem.span(p));
+        return self.allocator.dupe(u8, "");
+    }
+
+    /// Get the declared column type at the given index (e.g. "INTEGER", "TEXT"). Returns empty string for non-available types. The C-allocated Turso string is freed via turso_str_deinit.
+    pub fn columnDecltype(self: *Statement, index: usize) ![]u8 {
+        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        const ptr = c.turso_statement_column_decltype(self.ptr.?, index);
+        defer if (ptr) |p| c.turso_str_deinit(p);
+        if (ptr) |p| return try self.allocator.dupe(u8, std.mem.span(p));
+        return self.allocator.dupe(u8, "");
+    }
+
+    /// Resolve a named parameter to its 1-indexed positional value. Returns -1 if the name is not found.
+    pub fn namedPosition(self: *Statement, name: []const u8) i64 {
+        if (self.ptr == null) return -1;
+        const c_name = self.allocator.dupeZ(u8, name) catch return -1;
+        defer self.allocator.free(c_name);
+        return c.turso_statement_named_position(self.ptr.?, c_name);
+    }
+
+    /// Get the total number of parameters for the prepared statement. Returns -1 if the pointer is invalid.
+    pub fn parametersCount(self: *Statement) i64 {
+        if (self.ptr == null) return -1;
+        return c.turso_statement_parameters_count(self.ptr.?);
+    }
+
     /// Get the number of row modifications made by the most recent executed statement.
     pub fn nChange(self: *Statement) i64 {
         if (self.ptr) |p| {
