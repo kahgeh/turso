@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const err = @import("error.zig");
 const status = @import("status.zig");
+const value_mod = @import("value.zig");
 
 /// Wrapper around `turso_statement_t` with Zig-friendly lifecycle management.
 pub const Statement = struct {
@@ -128,6 +129,37 @@ pub const Statement = struct {
         if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
             return err.mapStatus(status_code, null, self.allocator);
         }
+    }
+
+    /// Get the value kind at the given column index for the current row.
+    pub fn rowValueKind(self: *Statement, index: usize) value_mod.ValueKind {
+        if (self.ptr == null) return .unknown;
+        const kind = c.turso_statement_row_value_kind(self.ptr.?, index);
+        return value_mod.ValueKind.fromC(kind);
+    }
+
+    /// Get an INTEGER value at the given column index. Returns 0 for non-integer kinds.
+    pub fn rowValueInt(self: *Statement, index: usize) i64 {
+        if (self.ptr == null) return 0;
+        return c.turso_statement_row_value_int(self.ptr.?, index);
+    }
+
+    /// Get a REAL value at the given column index. Returns 0 for non-real kinds.
+    pub fn rowValueDouble(self: *Statement, index: usize) f64 {
+        if (self.ptr == null) return 0;
+        return c.turso_statement_row_value_double(self.ptr.?, index);
+    }
+
+    /// Get a TEXT value at the given column index as an owned copy. Returns empty string for non-text kinds.
+    pub fn rowValueText(self: *Statement, index: usize) ![]u8 {
+        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        return value_mod.readText(self.ptr.?, index, self.allocator);
+    }
+
+    /// Get a BLOB value at the given column index as an owned copy. Returns empty slice for non-blob kinds.
+    pub fn rowValueBlob(self: *Statement, index: usize) ![]u8 {
+        if (self.ptr == null) return try self.allocator.dupe(u8, "");
+        return value_mod.readBlob(self.ptr.?, index, self.allocator);
     }
 
     /// Get the number of row modifications made by the most recent executed statement.

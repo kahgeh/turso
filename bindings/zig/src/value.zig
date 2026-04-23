@@ -1,0 +1,72 @@
+const std = @import("std");
+const c = @import("c.zig");
+const status = @import("status.zig");
+
+/// Zig-side representation of row value kinds, matching turso_type_t from the C API.
+pub const ValueKind = enum {
+    unknown,
+    integer,
+    real,
+    text,
+    blob,
+    null,
+
+    pub fn fromC(kind: status.TypeKind) ValueKind {
+        return switch (kind) {
+            .TURSO_TYPE_INTEGER => .integer,
+            .TURSO_TYPE_REAL => .real,
+            .TURSO_TYPE_TEXT => .text,
+            .TURSO_TYPE_BLOB => .blob,
+            .TURSO_TYPE_NULL => .null,
+            else => .unknown,
+        };
+    }
+};
+
+/// Read an INTEGER value at the given index. Returns 0 for non-integer kinds.
+pub fn readInt(
+    statement_ptr: *c.turso_statement_t,
+    index: usize,
+) i64 {
+    return c.turso_statement_row_value_int(statement_ptr, index);
+}
+
+/// Read a REAL value at the given index. Returns 0 for non-real kinds.
+pub fn readDouble(
+    statement_ptr: *c.turso_statement_t,
+    index: usize,
+) f64 {
+    return c.turso_statement_row_value_double(statement_ptr, index);
+}
+
+/// Read a TEXT value at the given index and return an owned copy.
+/// Returns empty string for non-text kinds.
+pub fn readText(
+    statement_ptr: *c.turso_statement_t,
+    index: usize,
+    allocator: std.mem.Allocator,
+) ![]u8 {
+    const n = c.turso_statement_row_value_bytes_count(statement_ptr, index);
+    if (n <= 0) return allocator.dupe(u8, "");
+
+    const ptr = c.turso_statement_row_value_bytes_ptr(statement_ptr, index);
+    if (ptr == null) return allocator.dupe(u8, "");
+
+    return std.mem.copyForwards(u8, try allocator.alloc(u8, n), ptr[0..n]);
+}
+
+/// Read a BLOB value at the given index and return an owned copy.
+/// Returns empty slice for non-blob kinds.
+pub fn readBlob(
+    statement_ptr: *c.turso_statement_t,
+    index: usize,
+    allocator: std.mem.Allocator,
+) ![]u8 {
+    const n = c.turso_statement_row_value_bytes_count(statement_ptr, index);
+    if (n <= 0) return try allocator.dupe(u8, "");
+
+    const ptr = c.turso_statement_row_value_bytes_ptr(statement_ptr, index);
+    if (ptr == null) return try allocator.dupe(u8, "");
+
+    return std.mem.copyForwards(u8, try allocator.alloc(u8, n), ptr[0..n]);
+}
