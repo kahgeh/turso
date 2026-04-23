@@ -42,9 +42,9 @@ pub const Connection = struct {
     /// Close the connection for further operations. Returns TursoError on failure.
     pub fn close(self: *Connection) err.TursoError!void {
         if (self.ptr == null) return;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_connection_close(self.ptr.?, &err_ptr);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
     }
@@ -53,34 +53,31 @@ pub const Connection = struct {
     pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!*statement_mod.Statement {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
         }
 
-        var stmt: ?*c.turso_statement_t = null;
-        var err_ptr: [*:0]const u8 = null;
-        const status_code = c.turso_connection_prepare_single(self.ptr.?, sql, &stmt, &err_ptr);
+        const c_sql = try self.allocator.dupeZ(u8, sql);
+        defer self.allocator.free(c_sql);
 
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        var stmt: ?*c.turso_statement_t = null;
+        var err_ptr: [*c]const u8 = null;
+        const status_code = c.turso_connection_prepare_single(self.ptr.?, c_sql, &stmt, &err_ptr);
+
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
 
-        const statement_wrapper = self.allocator.create(statement_mod.Statement) catch |e| {
-            var finalize_err: [*:0]const u8 = null;
+        const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
+            var finalize_err: [*c]const u8 = null;
             _ = c.turso_statement_finalize(stmt, &finalize_err);
-            if (finalize_err) |p| {
-                c.turso_str_deinit(p);
+            if (finalize_err != null) {
+                c.turso_str_deinit(finalize_err);
             }
             c.turso_statement_deinit(stmt);
-            var msg_buf: [256]u8 = undefined;
-            const msg = std.fmt.bufPrint(&msg_buf, "failed to allocate Statement: {}", .{e}) catch "failed to allocate Statement";
-            return err.TursoError{
-                .code = @enumFromInt(@intFromEnum(c.turso_status_code_t.TURSO_ERROR)),
-                .allocator = self.allocator,
-                .owned_message = try self.allocator.dupe(u8, msg),
-            };
+            return error.OutOfMemory;
         };
         statement_wrapper.* = statement_mod.Statement{
             .ptr = stmt,
@@ -94,7 +91,7 @@ pub const Connection = struct {
     pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
@@ -105,29 +102,23 @@ pub const Connection = struct {
 
         var stmt: ?*c.turso_statement_t = null;
         var tail_idx: usize = 0;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_connection_prepare_first(self.ptr.?, c_sql, &stmt, &tail_idx, &err_ptr);
 
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
 
         var wrapped_stmt: ?*statement_mod.Statement = null;
         if (stmt) |s| {
-            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch |e| {
-                var finalize_err: [*:0]const u8 = null;
+            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
+                var finalize_err: [*c]const u8 = null;
                 _ = c.turso_statement_finalize(s, &finalize_err);
-                if (finalize_err) |p| {
-                    c.turso_str_deinit(p);
+                if (finalize_err != null) {
+                    c.turso_str_deinit(finalize_err);
                 }
                 c.turso_statement_deinit(s);
-                var msg_buf: [256]u8 = undefined;
-                const msg = std.fmt.bufPrint(&msg_buf, "failed to allocate Statement: {}", .{e}) catch "failed to allocate Statement";
-                return err.TursoError{
-                    .code = @enumFromInt(@intFromEnum(c.turso_status_code_t.TURSO_ERROR)),
-                    .allocator = self.allocator,
-                    .owned_message = try self.allocator.dupe(u8, msg),
-                };
+                return error.OutOfMemory;
             };
             statement_wrapper.* = statement_mod.Statement{
                 .ptr = s,

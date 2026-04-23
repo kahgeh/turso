@@ -48,11 +48,14 @@ pub fn readText(
 ) ![]u8 {
     const n = c.turso_statement_row_value_bytes_count(statement_ptr, index);
     if (n <= 0) return allocator.dupe(u8, "");
+    const len: usize = @intCast(n);
 
     const ptr = c.turso_statement_row_value_bytes_ptr(statement_ptr, index);
     if (ptr == null) return allocator.dupe(u8, "");
 
-    return std.mem.copyForwards(u8, try allocator.alloc(u8, n), ptr[0..n]);
+    const out = try allocator.alloc(u8, len);
+    std.mem.copyForwards(u8, out, ptr[0..len]);
+    return out;
 }
 
 /// Read a BLOB value at the given index and return an owned copy.
@@ -64,9 +67,12 @@ pub fn readBlob(
 ) ![]u8 {
     const n = c.turso_statement_row_value_bytes_count(statement_ptr, index);
     if (n <= 0) return try allocator.dupe(u8, "");
+    const len: usize = @intCast(n);
 
     const ptr = c.turso_statement_row_value_bytes_ptr(statement_ptr, index);
     if (ptr == null) return try allocator.dupe(u8, "");
 
-    return std.mem.copyForwards(u8, try allocator.alloc(u8, n), ptr[0..n]);
+    const out = try allocator.alloc(u8, len);
+    std.mem.copyForwards(u8, out, ptr[0..len]);
+    return out;
 }

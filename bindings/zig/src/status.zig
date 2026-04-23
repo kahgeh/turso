@@ -1,2 +1,28 @@
-pub const StatusCode = @import("c.zig").turso_status_code_t;
-pub const TypeKind = @import("c.zig").turso_type_t;
+const c = @import("c.zig");
+
+pub const StatusCode = enum(c_uint) {
+    TURSO_OK = c.TURSO_OK,
+    TURSO_DONE = c.TURSO_DONE,
+    TURSO_ROW = c.TURSO_ROW,
+    TURSO_IO = c.TURSO_IO,
+    TURSO_BUSY = c.TURSO_BUSY,
+    TURSO_INTERRUPT = c.TURSO_INTERRUPT,
+    TURSO_BUSY_SNAPSHOT = c.TURSO_BUSY_SNAPSHOT,
+    TURSO_ERROR = c.TURSO_ERROR,
+    TURSO_MISUSE = c.TURSO_MISUSE,
+    TURSO_CONSTRAINT = c.TURSO_CONSTRAINT,
+    TURSO_READONLY = c.TURSO_READONLY,
+    TURSO_DATABASE_FULL = c.TURSO_DATABASE_FULL,
+    TURSO_NOTADB = c.TURSO_NOTADB,
+    TURSO_CORRUPT = c.TURSO_CORRUPT,
+    TURSO_IOERR = c.TURSO_IOERR,
+};
+
+pub const TypeKind = enum(c_uint) {
+    TURSO_TYPE_UNKNOWN = c.TURSO_TYPE_UNKNOWN,
+    TURSO_TYPE_INTEGER = c.TURSO_TYPE_INTEGER,
+    TURSO_TYPE_REAL = c.TURSO_TYPE_REAL,
+    TURSO_TYPE_TEXT = c.TURSO_TYPE_TEXT,
+    TURSO_TYPE_BLOB = c.TURSO_TYPE_BLOB,
+    TURSO_TYPE_NULL = c.TURSO_TYPE_NULL,
+};

@@ -7,6 +7,29 @@ pub const turso_status_code_t = raw_c.turso_status_code_t;
 pub const turso_type_t = raw_c.turso_type_t;
 pub const turso_tracing_level_t = raw_c.turso_tracing_level_t;
 
+pub const TURSO_OK = raw_c.TURSO_OK;
+pub const TURSO_DONE = raw_c.TURSO_DONE;
+pub const TURSO_ROW = raw_c.TURSO_ROW;
+pub const TURSO_IO = raw_c.TURSO_IO;
+pub const TURSO_BUSY = raw_c.TURSO_BUSY;
+pub const TURSO_INTERRUPT = raw_c.TURSO_INTERRUPT;
+pub const TURSO_BUSY_SNAPSHOT = raw_c.TURSO_BUSY_SNAPSHOT;
+pub const TURSO_ERROR = raw_c.TURSO_ERROR;
+pub const TURSO_MISUSE = raw_c.TURSO_MISUSE;
+pub const TURSO_CONSTRAINT = raw_c.TURSO_CONSTRAINT;
+pub const TURSO_READONLY = raw_c.TURSO_READONLY;
+pub const TURSO_DATABASE_FULL = raw_c.TURSO_DATABASE_FULL;
+pub const TURSO_NOTADB = raw_c.TURSO_NOTADB;
+pub const TURSO_CORRUPT = raw_c.TURSO_CORRUPT;
+pub const TURSO_IOERR = raw_c.TURSO_IOERR;
+
+pub const TURSO_TYPE_UNKNOWN = raw_c.TURSO_TYPE_UNKNOWN;
+pub const TURSO_TYPE_INTEGER = raw_c.TURSO_TYPE_INTEGER;
+pub const TURSO_TYPE_REAL = raw_c.TURSO_TYPE_REAL;
+pub const TURSO_TYPE_TEXT = raw_c.TURSO_TYPE_TEXT;
+pub const TURSO_TYPE_BLOB = raw_c.TURSO_TYPE_BLOB;
+pub const TURSO_TYPE_NULL = raw_c.TURSO_TYPE_NULL;
+
 pub const turso_database_t = raw_c.turso_database_t;
 pub const turso_connection_t = raw_c.turso_connection_t;
 pub const turso_statement_t = raw_c.turso_statement_t;

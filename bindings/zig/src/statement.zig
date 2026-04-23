@@ -13,14 +13,14 @@ pub const Statement = struct {
     pub fn execute(self: *Statement) err.TursoError!u64 {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
         }
 
         var changes: u64 = 0;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_execute(self.ptr.?, &changes, &err_ptr);
 
         return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
@@ -33,13 +33,13 @@ pub const Statement = struct {
     pub fn step(self: *Statement) err.TursoError!status.StatusCode {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
         }
 
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_step(self.ptr.?, &err_ptr);
 
         return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
@@ -51,9 +51,9 @@ pub const Statement = struct {
     /// Execute one iteration of the underlying IO backend after TURSO_IO status. Returns TursoError on failure.
     pub fn runIO(self: *Statement) err.TursoError!void {
         if (self.ptr == null) return;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_run_io(self.ptr.?, &err_ptr);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
     }
@@ -61,9 +61,9 @@ pub const Statement = struct {
     /// Reset a statement to prepare it for re-execution. Returns TursoError on failure.
     pub fn reset(self: *Statement) err.TursoError!void {
         if (self.ptr == null) return;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_reset(self.ptr.?, &err_ptr);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
     }
@@ -71,18 +71,19 @@ pub const Statement = struct {
     /// Finalize a statement to complete execution and cleanup. Returns TursoError on failure.
     pub fn finalize(self: *Statement) err.TursoError!void {
         if (self.ptr == null) return;
-        var err_ptr: [*:0]const u8 = null;
+        var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_finalize(self.ptr.?, &err_ptr);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
-            return err.mapStatus(status_code, err_ptr, self.allocator);
-        }
+        return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
+            .TURSO_OK, .TURSO_DONE => {},
+            else => err.mapStatus(status_code, err_ptr, self.allocator),
+        };
     }
 
     /// Bind a NULL value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindNull(self: *Statement, position: usize) err.TursoError!void {
         if (self.ptr == null) return;
         const status_code = c.turso_statement_bind_positional_null(self.ptr.?, position);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
         }
     }
@@ -91,7 +92,7 @@ pub const Statement = struct {
     pub fn bindInt(self: *Statement, position: usize, value: i64) err.TursoError!void {
         if (self.ptr == null) return;
         const status_code = c.turso_statement_bind_positional_int(self.ptr.?, position, value);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
         }
     }
@@ -100,7 +101,7 @@ pub const Statement = struct {
     pub fn bindDouble(self: *Statement, position: usize, value: f64) err.TursoError!void {
         if (self.ptr == null) return;
         const status_code = c.turso_statement_bind_positional_double(self.ptr.?, position, value);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
         }
     }
@@ -113,7 +114,7 @@ pub const Statement = struct {
             ptr = value.ptr;
         }
         const status_code = c.turso_statement_bind_positional_text(self.ptr.?, position, ptr, value.len);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
         }
     }
@@ -126,7 +127,7 @@ pub const Statement = struct {
             ptr = value.ptr;
         }
         const status_code = c.turso_statement_bind_positional_blob(self.ptr.?, position, ptr, value.len);
-        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+        if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
         }
     }
@@ -135,7 +136,7 @@ pub const Statement = struct {
     pub fn rowValueKind(self: *Statement, index: usize) value_mod.ValueKind {
         if (self.ptr == null) return .unknown;
         const kind = c.turso_statement_row_value_kind(self.ptr.?, index);
-        return value_mod.ValueKind.fromC(kind);
+        return value_mod.ValueKind.fromC(@enumFromInt(kind));
     }
 
     /// Get an INTEGER value at the given column index. Returns 0 for non-integer kinds.
@@ -204,14 +205,14 @@ pub const Statement = struct {
     fn executeSync(self: *Statement) err.TursoError!u64 {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
         }
         while (true) {
             var changes: u64 = 0;
-            var err_ptr: [*:0]const u8 = null;
+            var err_ptr: [*c]const u8 = null;
             const status_code = c.turso_statement_execute(self.ptr.?, &changes, &err_ptr);
             return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
                 .TURSO_OK, .TURSO_DONE => changes,
@@ -228,13 +229,13 @@ pub const Statement = struct {
     fn stepSync(self: *Statement) err.TursoError!status.StatusCode {
         if (self.ptr == null) {
             return err.mapStatus(
-                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                c.TURSO_MISUSE,
                 null,
                 self.allocator,
             );
         }
         while (true) {
-            var err_ptr: [*:0]const u8 = null;
+            var err_ptr: [*c]const u8 = null;
             const status_code = c.turso_statement_step(self.ptr.?, &err_ptr);
             return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
                 .TURSO_ROW, .TURSO_DONE => @enumFromInt(status_code),
