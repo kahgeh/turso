@@ -124,3 +124,5 @@ The current test matrix covers:
 - row value kinds and copied TEXT/BLOB values
 - row-change and last-insert-rowid accounting
 - regression queries for `RETURNING`, joins, subqueries, `ALTER TABLE`, `generate_series`, and JSON helpers
+- misuse and lifecycle error paths
+- file-backed reopen and duplicate-connection coverage

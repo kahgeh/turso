@@ -128,6 +128,38 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&types_tests.step);
     const run_types_tests = b.addRunArtifact(types_tests);
 
+    const errors_tests = b.addTest(.{
+        .name = "errors-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/errors.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    errors_tests.root_module.addImport("turso", turso_module);
+    errors_tests.root_module.addIncludePath(b.path("src"));
+    errors_tests.root_module.addObjectFile(sdk_kit_archive);
+    errors_tests.root_module.linkSystemLibrary("c", .{});
+    errors_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&errors_tests.step);
+    const run_errors_tests = b.addRunArtifact(errors_tests);
+
+    const file_backed_tests = b.addTest(.{
+        .name = "file-backed-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/file_backed.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    file_backed_tests.root_module.addImport("turso", turso_module);
+    file_backed_tests.root_module.addIncludePath(b.path("src"));
+    file_backed_tests.root_module.addObjectFile(sdk_kit_archive);
+    file_backed_tests.root_module.linkSystemLibrary("c", .{});
+    file_backed_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&file_backed_tests.step);
+    const run_file_backed_tests = b.addRunArtifact(file_backed_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
@@ -136,4 +168,6 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_multi_statement_tests.step);
     test_step.dependOn(&run_regression_tests.step);
     test_step.dependOn(&run_types_tests.step);
+    test_step.dependOn(&run_errors_tests.step);
+    test_step.dependOn(&run_file_backed_tests.step);
 }
