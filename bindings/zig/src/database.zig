@@ -1,6 +1,7 @@
 const std = @import("std");
 const c = @import("c.zig");
 const err = @import("error.zig");
+const connection = @import("connection.zig");
 
 /// Configuration for creating/opening a database.
 pub const DatabaseConfig = struct {
@@ -93,6 +94,41 @@ pub const Database = struct {
         }
 
         self.ptr = db;
+    }
+
+    /// Connect to the database and return a new Connection.
+    pub fn connect(self: *Database) err.TursoError!*connection.Connection {
+        if (self.ptr == null) {
+            return err.mapStatus(
+                @intFromEnum(c.turso_status_code_t.TURSO_MISUSE),
+                null,
+                self.allocator,
+            );
+        }
+
+        var conn: ?*c.turso_connection_t = null;
+        var err_ptr: [*:0]const u8 = null;
+        const status = c.turso_database_connect(self.ptr.?, &conn, &err_ptr);
+
+        if (status != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status, err_ptr, self.allocator);
+        }
+
+        const connection_wrapper = self.allocator.create(connection.Connection) catch |e| {
+            c.turso_connection_deinit(conn);
+            var msg_buf: [256]u8 = undefined;
+            const msg = std.fmt.bufPrint(&msg_buf, "failed to allocate Connection: {}", .{e}) catch "failed to allocate Connection";
+            return err.TursoError{
+                .code = @enumFromInt(@intFromEnum(c.turso_status_code_t.TURSO_ERROR)),
+                .allocator = self.allocator,
+                .owned_message = try self.allocator.dupe(u8, msg),
+            };
+        };
+        connection_wrapper.* = connection.Connection{
+            .ptr = conn,
+            .allocator = self.allocator,
+        };
+        return connection_wrapper;
     }
 
     /// Deinitialize and free the database handle.

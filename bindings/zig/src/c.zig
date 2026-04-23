@@ -15,6 +15,13 @@ pub const turso_database_config_t = raw_c.turso_database_config_t;
 
 pub const turso_database_new = raw_c.turso_database_new;
 pub const turso_database_open = raw_c.turso_database_open;
+pub const turso_database_connect = raw_c.turso_database_connect;
 pub const turso_database_deinit = raw_c.turso_database_deinit;
+
+pub const turso_connection_set_busy_timeout_ms = raw_c.turso_connection_set_busy_timeout_ms;
+pub const turso_connection_get_autocommit = raw_c.turso_connection_get_autocommit;
+pub const turso_connection_last_insert_rowid = raw_c.turso_connection_last_insert_rowid;
+pub const turso_connection_close = raw_c.turso_connection_close;
+pub const turso_connection_deinit = raw_c.turso_connection_deinit;
 
 pub const turso_str_deinit = raw_c.turso_str_deinit;
