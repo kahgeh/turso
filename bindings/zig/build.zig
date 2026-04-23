@@ -47,7 +47,58 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&basic_tests.step);
     const run_basic_tests = b.addRunArtifact(basic_tests);
 
+    const params_tests = b.addTest(.{
+        .name = "params-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/params.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    params_tests.root_module.addImport("turso", turso_module);
+    params_tests.root_module.addIncludePath(b.path("src"));
+    params_tests.root_module.addObjectFile(sdk_kit_archive);
+    params_tests.root_module.linkSystemLibrary("c", .{});
+    params_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&params_tests.step);
+    const run_params_tests = b.addRunArtifact(params_tests);
+
+    const metadata_tests = b.addTest(.{
+        .name = "metadata-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/metadata.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    metadata_tests.root_module.addImport("turso", turso_module);
+    metadata_tests.root_module.addIncludePath(b.path("src"));
+    metadata_tests.root_module.addObjectFile(sdk_kit_archive);
+    metadata_tests.root_module.linkSystemLibrary("c", .{});
+    metadata_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&metadata_tests.step);
+    const run_metadata_tests = b.addRunArtifact(metadata_tests);
+
+    const multi_statement_tests = b.addTest(.{
+        .name = "multi-statement-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/multi_statement.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    multi_statement_tests.root_module.addImport("turso", turso_module);
+    multi_statement_tests.root_module.addIncludePath(b.path("src"));
+    multi_statement_tests.root_module.addObjectFile(sdk_kit_archive);
+    multi_statement_tests.root_module.linkSystemLibrary("c", .{});
+    multi_statement_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&multi_statement_tests.step);
+    const run_multi_statement_tests = b.addRunArtifact(multi_statement_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
+    test_step.dependOn(&run_params_tests.step);
+    test_step.dependOn(&run_metadata_tests.step);
+    test_step.dependOn(&run_multi_statement_tests.step);
 }
