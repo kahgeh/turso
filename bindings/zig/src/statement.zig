@@ -77,6 +77,59 @@ pub const Statement = struct {
         }
     }
 
+    /// Bind a NULL value to a positional parameter (1-indexed). Returns TursoError on failure.
+    pub fn bindNull(self: *Statement, position: usize) err.TursoError!void {
+        if (self.ptr == null) return;
+        const status_code = c.turso_statement_bind_positional_null(self.ptr.?, position);
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    /// Bind an INTEGER value to a positional parameter (1-indexed). Returns TursoError on failure.
+    pub fn bindInt(self: *Statement, position: usize, value: i64) err.TursoError!void {
+        if (self.ptr == null) return;
+        const status_code = c.turso_statement_bind_positional_int(self.ptr.?, position, value);
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    /// Bind a DOUBLE value to a positional parameter (1-indexed). Returns TursoError on failure.
+    pub fn bindDouble(self: *Statement, position: usize, value: f64) err.TursoError!void {
+        if (self.ptr == null) return;
+        const status_code = c.turso_statement_bind_positional_double(self.ptr.?, position, value);
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    /// Bind a TEXT value to a positional parameter (1-indexed). Returns TursoError on failure.
+    pub fn bindText(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
+        if (self.ptr == null) return;
+        var ptr: [*]const u8 = "";
+        if (value.len > 0) {
+            ptr = value.ptr;
+        }
+        const status_code = c.turso_statement_bind_positional_text(self.ptr.?, position, ptr, value.len);
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    /// Bind a BLOB value to a positional parameter (1-indexed). Returns TursoError on failure.
+    pub fn bindBlob(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
+        if (self.ptr == null) return;
+        var ptr: [*]const u8 = "";
+        if (value.len > 0) {
+            ptr = value.ptr;
+        }
+        const status_code = c.turso_statement_bind_positional_blob(self.ptr.?, position, ptr, value.len);
+        if (status_code != @intFromEnum(c.turso_status_code_t.TURSO_OK)) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
     /// Get the number of row modifications made by the most recent executed statement.
     pub fn nChange(self: *Statement) i64 {
         if (self.ptr) |p| {
