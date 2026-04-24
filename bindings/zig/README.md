@@ -135,3 +135,22 @@ The current test matrix covers:
 - encryption reopen and wrong-key coverage
 - busy-timeout and concurrent-writer contention coverage
 - async `TURSO_IO` retry coverage
+
+## Parity Matrix
+
+The Zig binding is aligned with the low-level coverage in `bindings/go/bindings_db_test.go` and the binding-relevant parts of `bindings/go/driver_db_test.go`. The remaining differences are explicit:
+
+| Area | Zig status | Notes |
+| --- | --- | --- |
+| Open/create/connect/close lifecycle | Supported | Covered by smoke, file-backed, and error-path tests. |
+| Single-statement execution and stepping | Supported | Includes synchronous and async retry coverage. |
+| Positional and named parameters | Supported | Includes binding counts and round-trips. |
+| Column metadata | Supported | Includes owned-copy behavior. |
+| Multi-statement `prepareFirst()` | Supported | Includes trailing SQL and null-statement cases. |
+| Row decoding and accounting | Supported | Covers INTEGER, REAL, TEXT, BLOB, NULL, `n_change`, and `lastInsertRowId()`. |
+| File-backed reopen and encryption | Supported | Covers reopen with the same key and controlled failure for wrong or missing keys. |
+| Busy timeout and contention | Supported | Covers runtime timeout changes and concurrent writer behavior. |
+| Async `TURSO_IO` retry | Supported | Exercised through the public execute/step wrappers. |
+| DSN parsing and connector options | Not modeled | Zig binds the direct C ABI and does not expose a Go-style connector layer. |
+| Default busy-timeout connector tests | Not modeled | There is no Zig connector abstraction to host DSN precedence checks. |
+| Higher-level `sql.DB` driver integration | Not modeled | Out of scope for the thin Zig wrapper. |
