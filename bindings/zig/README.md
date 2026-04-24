@@ -19,10 +19,16 @@ bindings/zig/
 │   └── value.zig
 └── tests/
     ├── basic.zig
+    ├── async_io.zig
+    ├── contention.zig
+    ├── encryption.zig
+    ├── file_backed.zig
     ├── metadata.zig
     ├── multi_statement.zig
     ├── params.zig
-    └── support.zig
+    ├── regressions.zig
+    ├── support.zig
+    ├── types.zig
 ```
 
 ## Supported Environment
@@ -127,3 +133,5 @@ The current test matrix covers:
 - misuse and lifecycle error paths
 - file-backed reopen and duplicate-connection coverage
 - encryption reopen and wrong-key coverage
+- busy-timeout and concurrent-writer contention coverage
+- async `TURSO_IO` retry coverage

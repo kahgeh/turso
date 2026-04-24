@@ -11,41 +11,12 @@ pub const Statement = struct {
 
     /// Execute a single statement to completion. Returns row changes count or TursoError.
     pub fn execute(self: *Statement) err.TursoError!u64 {
-        if (self.ptr == null) {
-            return err.mapStatus(
-                c.TURSO_MISUSE,
-                null,
-                self.allocator,
-            );
-        }
-
-        var changes: u64 = 0;
-        var err_ptr: [*c]const u8 = null;
-        const status_code = c.turso_statement_execute(self.ptr.?, &changes, &err_ptr);
-
-        return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
-            .TURSO_OK, .TURSO_DONE => changes,
-            else => err.mapStatus(status_code, err_ptr, self.allocator),
-        };
+        return self.executeSync();
     }
 
     /// Step statement execution once. Returns TURSO_ROW if a row is available, TURSO_DONE when finished, or TursoError.
     pub fn step(self: *Statement) err.TursoError!status.StatusCode {
-        if (self.ptr == null) {
-            return err.mapStatus(
-                c.TURSO_MISUSE,
-                null,
-                self.allocator,
-            );
-        }
-
-        var err_ptr: [*c]const u8 = null;
-        const status_code = c.turso_statement_step(self.ptr.?, &err_ptr);
-
-        return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
-            .TURSO_OK, .TURSO_DONE, .TURSO_ROW => @enumFromInt(status_code),
-            else => err.mapStatus(status_code, err_ptr, self.allocator),
-        };
+        return self.stepSync();
     }
 
     /// Execute one iteration of the underlying IO backend after TURSO_IO status. Returns TursoError on failure.

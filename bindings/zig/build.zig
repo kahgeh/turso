@@ -176,6 +176,38 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&encryption_tests.step);
     const run_encryption_tests = b.addRunArtifact(encryption_tests);
 
+    const contention_tests = b.addTest(.{
+        .name = "contention-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/contention.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    contention_tests.root_module.addImport("turso", turso_module);
+    contention_tests.root_module.addIncludePath(b.path("src"));
+    contention_tests.root_module.addObjectFile(sdk_kit_archive);
+    contention_tests.root_module.linkSystemLibrary("c", .{});
+    contention_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&contention_tests.step);
+    const run_contention_tests = b.addRunArtifact(contention_tests);
+
+    const async_io_tests = b.addTest(.{
+        .name = "async-io-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/async_io.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    async_io_tests.root_module.addImport("turso", turso_module);
+    async_io_tests.root_module.addIncludePath(b.path("src"));
+    async_io_tests.root_module.addObjectFile(sdk_kit_archive);
+    async_io_tests.root_module.linkSystemLibrary("c", .{});
+    async_io_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&async_io_tests.step);
+    const run_async_io_tests = b.addRunArtifact(async_io_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
@@ -187,4 +219,6 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_errors_tests.step);
     test_step.dependOn(&run_file_backed_tests.step);
     test_step.dependOn(&run_encryption_tests.step);
+    test_step.dependOn(&run_contention_tests.step);
+    test_step.dependOn(&run_async_io_tests.step);
 }
