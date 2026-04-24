@@ -160,6 +160,22 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&file_backed_tests.step);
     const run_file_backed_tests = b.addRunArtifact(file_backed_tests);
 
+    const encryption_tests = b.addTest(.{
+        .name = "encryption-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/encryption.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    encryption_tests.root_module.addImport("turso", turso_module);
+    encryption_tests.root_module.addIncludePath(b.path("src"));
+    encryption_tests.root_module.addObjectFile(sdk_kit_archive);
+    encryption_tests.root_module.linkSystemLibrary("c", .{});
+    encryption_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&encryption_tests.step);
+    const run_encryption_tests = b.addRunArtifact(encryption_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
@@ -170,4 +186,5 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_types_tests.step);
     test_step.dependOn(&run_errors_tests.step);
     test_step.dependOn(&run_file_backed_tests.step);
+    test_step.dependOn(&run_encryption_tests.step);
 }

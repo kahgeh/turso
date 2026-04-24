@@ -41,10 +41,10 @@ pub const Database = struct {
         // Allocate zero-terminated copies for C FFI.
         const path_owned = try self.allocator.dupeZ(u8, config.path);
 
-        var c_exp_buf: ?[]u8 = null;
-        var c_vfs_buf: ?[]u8 = null;
-        var c_enc_cipher_buf: ?[]u8 = null;
-        var c_enc_hexkey_buf: ?[]u8 = null;
+        var c_exp_buf: ?[:0]u8 = null;
+        var c_vfs_buf: ?[:0]u8 = null;
+        var c_enc_cipher_buf: ?[:0]u8 = null;
+        var c_enc_hexkey_buf: ?[:0]u8 = null;
 
         if (config.experimental_features) |exp| {
             c_exp_buf = try self.allocator.dupeZ(u8, exp);

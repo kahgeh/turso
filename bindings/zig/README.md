@@ -126,3 +126,4 @@ The current test matrix covers:
 - regression queries for `RETURNING`, joins, subqueries, `ALTER TABLE`, `generate_series`, and JSON helpers
 - misuse and lifecycle error paths
 - file-backed reopen and duplicate-connection coverage
+- encryption reopen and wrong-key coverage
