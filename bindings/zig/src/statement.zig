@@ -134,6 +134,18 @@ pub const Statement = struct {
         return value_mod.readBlob(self.ptr.?, index, self.allocator);
     }
 
+    /// Get the value at the given column index as an owned Zig value.
+    pub fn rowValue(self: *Statement, index: usize) !value_mod.OwnedValue {
+        return switch (self.rowValueKind(index)) {
+            .integer => .{ .integer = self.rowValueInt(index) },
+            .real => .{ .real = self.rowValueDouble(index) },
+            .text => .{ .text = try self.rowValueText(index) },
+            .blob => .{ .blob = try self.rowValueBlob(index) },
+            .null => .{ .null = {} },
+            .unknown => .{ .unknown = {} },
+        };
+    }
+
     /// Get the column count for the prepared statement.
     pub fn columnCount(self: *Statement) i64 {
         if (self.ptr == null) return 0;

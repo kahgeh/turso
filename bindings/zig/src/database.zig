@@ -24,6 +24,82 @@ pub const DatabaseConfig = struct {
     }
 };
 
+/// Builder-style database construction for callers that want Rust-like `Builder::new_local(...)` ergonomics.
+pub const Builder = struct {
+    allocator: std.mem.Allocator,
+    config: DatabaseConfig,
+
+    pub fn newLocal(allocator: std.mem.Allocator, path: []const u8) Builder {
+        return .{
+            .allocator = allocator,
+            .config = .{ .path = path },
+        };
+    }
+
+    pub fn withAsyncIO(self: Builder, async_io: bool) Builder {
+        var builder = self;
+        builder.config.async_io = async_io;
+        return builder;
+    }
+
+    pub fn withExperimentalFeatures(self: Builder, experimental_features: []const u8) Builder {
+        var builder = self;
+        builder.config.experimental_features = experimental_features;
+        return builder;
+    }
+
+    pub fn withVfs(self: Builder, vfs: []const u8) Builder {
+        var builder = self;
+        builder.config.vfs = vfs;
+        return builder;
+    }
+
+    pub fn withEncryption(self: Builder, cipher: []const u8, hexkey: []const u8) Builder {
+        var builder = self;
+        builder.config.encryption_cipher = cipher;
+        builder.config.encryption_hexkey = hexkey;
+        return builder;
+    }
+
+    /// Build and open the database. The lower-level `Database.init` + `create` path remains available.
+    pub fn build(self: Builder) err.TursoError!Database {
+        var database = Database.init(self.allocator);
+        errdefer database.deinit();
+        try database.create(&self.config);
+        return database;
+    }
+
+    /// Build, open, and connect in one call.
+    pub fn connect(self: Builder) err.TursoError!OpenConnection {
+        var database = try self.build();
+        errdefer database.deinit();
+
+        const conn = try database.connect();
+        return .{
+            .database = database,
+            .connection = conn,
+            .allocator = self.allocator,
+        };
+    }
+};
+
+/// Owns both a database and one connection created from it.
+pub const OpenConnection = struct {
+    database: Database,
+    connection: *connection.Connection,
+    allocator: std.mem.Allocator,
+
+    pub fn deinit(self: *OpenConnection) void {
+        self.connection.deinit();
+        self.allocator.destroy(self.connection);
+        self.database.deinit();
+    }
+};
+
+pub fn newLocal(allocator: std.mem.Allocator, path: []const u8) Builder {
+    return Builder.newLocal(allocator, path);
+}
+
 /// Wrapper around `turso_database_t` with Zig-friendly lifecycle management.
 pub const Database = struct {
     ptr: ?*const c.turso_database_t,
@@ -94,6 +170,11 @@ pub const Database = struct {
         }
 
         self.ptr = db;
+    }
+
+    /// Alias for create() that makes the open lifecycle explicit at call sites.
+    pub fn open(self: *Database, config: *const DatabaseConfig) err.TursoError!void {
+        try self.create(config);
     }
 
     /// Connect to the database and return a new Connection.

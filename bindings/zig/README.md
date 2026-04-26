@@ -1,6 +1,6 @@
 # Turso Zig Binding
 
-Zig bindings for [TursoDB](https://turso.tech) local database access. This package wraps the `turso_sdk_kit` C ABI and exposes thin Zig modules for database, connection, statement, value, status, and error handling.
+Zig bindings for [TursoDB](https://turso.tech) local database access. This package wraps the `turso_sdk_kit` C ABI and exposes thin Zig modules plus higher-level local-database convenience helpers.
 
 ## Layout
 
@@ -23,6 +23,7 @@ bindings/zig/
     ├── contention.zig
     ├── encryption.zig
     ├── file_backed.zig
+    ├── high_level.zig
     ├── metadata.zig
     ├── multi_statement.zig
     ├── params.zig
@@ -55,7 +56,32 @@ from `bindings/zig/`.
 
 ## Usage
 
-The module name is `turso`. Import it from your Zig code and open a database, create a connection, then prepare and execute statements.
+The module name is `turso`. Import it from your Zig code and use the builder for the common local open/connect flow:
+
+```zig
+const std = @import("std");
+const turso = @import("turso");
+
+pub fn main() !void {
+    const allocator = std.heap.page_allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    _ = try opened.connection.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)");
+    _ = try opened.connection.execute("INSERT INTO t(name) VALUES ('ada')");
+
+    var result = try opened.connection.query("SELECT id, name FROM t");
+    defer result.deinit();
+
+    std.debug.print("row: {d} {s}\n", .{
+        result.rows[0].values[0].integer,
+        result.rows[0].values[1].text,
+    });
+}
+```
+
+The lower-level handle API remains available when callers need direct statement binding, stepping, reset, or finalize control:
 
 ```zig
 const std = @import("std");
@@ -108,6 +134,7 @@ pub fn main() !void {
 - `Database`, `Connection`, and `Statement` handles must be explicitly deinitialized.
 - `Connection.close()` and `Statement.finalize()` are separate from `deinit()`.
 - Text and blob row values returned by the wrapper are owned copies in Zig memory.
+- `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
 - `prepareFirst()` can return a null statement when the remaining SQL contains only whitespace or comments.
@@ -135,6 +162,11 @@ The current test matrix covers:
 - encryption reopen and wrong-key coverage
 - busy-timeout and concurrent-writer contention coverage
 - async `TURSO_IO` retry coverage
+- builder, execute/query, execute-batch, and transaction convenience coverage
+
+## Sync Layer
+
+The Zig binding is intentionally local-only for now. The exposed C ABI currently covers local database, connection, and statement handles; it does not expose the Rust sync engine configuration or lifecycle. Zig sync parity should be added as a separate wrapper only after the C ABI has an explicit sync surface to bind.
 
 ## Parity Matrix
 
@@ -151,6 +183,10 @@ The Zig binding is aligned with the low-level coverage in `bindings/go/bindings_
 | File-backed reopen and encryption | Supported | Covers reopen with the same key and controlled failure for wrong or missing keys. |
 | Busy timeout and contention | Supported | Covers runtime timeout changes and concurrent writer behavior. |
 | Async `TURSO_IO` retry | Supported | Exercised through the public execute/step wrappers. |
+| Builder-style local construction | Supported | `turso.Builder.newLocal(...).build()` and `.connect()`. |
+| Higher-level execute/query helpers | Supported | `Connection.execute()`, `executeBatch()`, and `query()` preserve owned-copy row semantics. |
+| Transaction ergonomics | Supported | `Connection.transaction()` with explicit `commit()` / `rollback()`. |
+| Rust sync layer | Not modeled | Local-only by design until the C ABI exposes sync primitives. |
 | DSN parsing and connector options | Not modeled | Zig binds the direct C ABI and does not expose a Go-style connector layer. |
 | Default busy-timeout connector tests | Not modeled | There is no Zig connector abstraction to host DSN precedence checks. |
 | Higher-level `sql.DB` driver integration | Not modeled | Out of scope for the thin Zig wrapper. |

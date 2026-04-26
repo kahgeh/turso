@@ -23,6 +23,25 @@ pub const ValueKind = enum {
     }
 };
 
+/// Owned Zig value copied out of the current statement row.
+pub const OwnedValue = union(ValueKind) {
+    unknown: void,
+    integer: i64,
+    real: f64,
+    text: []u8,
+    blob: []u8,
+    null: void,
+
+    pub fn deinit(self: *OwnedValue, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .text => |text| allocator.free(text),
+            .blob => |blob| allocator.free(blob),
+            else => {},
+        }
+        self.* = .{ .unknown = {} };
+    }
+};
+
 /// Read an INTEGER value at the given index. Returns 0 for non-integer kinds.
 pub fn readInt(
     statement_ptr: *c.turso_statement_t,

@@ -208,6 +208,22 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&async_io_tests.step);
     const run_async_io_tests = b.addRunArtifact(async_io_tests);
 
+    const high_level_tests = b.addTest(.{
+        .name = "high-level-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/high_level.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    high_level_tests.root_module.addImport("turso", turso_module);
+    high_level_tests.root_module.addIncludePath(b.path("src"));
+    high_level_tests.root_module.addObjectFile(sdk_kit_archive);
+    high_level_tests.root_module.linkSystemLibrary("c", .{});
+    high_level_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&high_level_tests.step);
+    const run_high_level_tests = b.addRunArtifact(high_level_tests);
+
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
     test_step.dependOn(&run_basic_tests.step);
@@ -221,4 +237,5 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_encryption_tests.step);
     test_step.dependOn(&run_contention_tests.step);
     test_step.dependOn(&run_async_io_tests.step);
+    test_step.dependOn(&run_high_level_tests.step);
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const err = @import("error.zig");
 const statement_mod = @import("statement.zig");
+const value_mod = @import("value.zig");
 
 /// Result of preparing the first statement from multi-statement SQL.
 pub const PrepareFirstResult = struct {
@@ -9,6 +10,72 @@ pub const PrepareFirstResult = struct {
     statement: ?*statement_mod.Statement,
     /// Byte offset in sql right after the parsed statement.
     tail_idx: usize,
+};
+
+pub const Column = struct {
+    name: []u8,
+    decltype: []u8,
+
+    pub fn deinit(self: *Column, allocator: std.mem.Allocator) void {
+        allocator.free(self.name);
+        allocator.free(self.decltype);
+    }
+};
+
+pub const Row = struct {
+    values: []value_mod.OwnedValue,
+
+    pub fn deinit(self: *Row, allocator: std.mem.Allocator) void {
+        for (self.values) |*value| {
+            value.deinit(allocator);
+        }
+        allocator.free(self.values);
+    }
+};
+
+pub const QueryResult = struct {
+    columns: []Column,
+    rows: []Row,
+    allocator: std.mem.Allocator,
+
+    pub fn deinit(self: *QueryResult) void {
+        for (self.columns) |*column| {
+            column.deinit(self.allocator);
+        }
+        self.allocator.free(self.columns);
+
+        for (self.rows) |*row| {
+            row.deinit(self.allocator);
+        }
+        self.allocator.free(self.rows);
+    }
+};
+
+pub const Transaction = struct {
+    conn: *Connection,
+    finished: bool = false,
+
+    pub fn execute(self: *Transaction, sql: []const u8) err.TursoError!u64 {
+        return self.conn.execute(sql);
+    }
+
+    pub fn query(self: *Transaction, sql: []const u8) err.TursoError!QueryResult {
+        return self.conn.query(sql);
+    }
+
+    pub fn commit(self: *Transaction) err.TursoError!void {
+        if (self.finished) {
+            return err.mapStatus(c.TURSO_MISUSE, null, self.conn.allocator);
+        }
+        _ = try self.conn.execute("COMMIT");
+        self.finished = true;
+    }
+
+    pub fn rollback(self: *Transaction) err.TursoError!void {
+        if (self.finished) return;
+        _ = try self.conn.execute("ROLLBACK");
+        self.finished = true;
+    }
 };
 
 /// Wrapper around `turso_connection_t` with Zig-friendly lifecycle management.
@@ -84,6 +151,130 @@ pub const Connection = struct {
             .allocator = self.allocator,
         };
         return statement_wrapper;
+    }
+
+    /// Prepare and execute a single SQL statement to completion.
+    pub fn execute(self: *Connection, sql: []const u8) err.TursoError!u64 {
+        const stmt = try self.prepareSingle(sql);
+        defer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+            self.allocator.destroy(stmt);
+        }
+        return stmt.execute();
+    }
+
+    /// Execute every statement in a SQL batch and return the total row-change count.
+    pub fn executeBatch(self: *Connection, sql: []const u8) err.TursoError!u64 {
+        var start: usize = 0;
+        var total_changes: u64 = 0;
+
+        while (start < sql.len) {
+            const result = try self.prepareFirst(sql[start..]);
+            if (result.statement == null) {
+                if (std.mem.trim(u8, sql[start..], " \t\r\n").len != 0) {
+                    return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+                }
+                break;
+            }
+
+            if (result.tail_idx == 0) {
+                return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+            }
+
+            const stmt = result.statement.?;
+            defer {
+                stmt.finalize() catch {};
+                stmt.deinit();
+                self.allocator.destroy(stmt);
+            }
+
+            total_changes += try stmt.execute();
+            start += result.tail_idx;
+        }
+
+        return total_changes;
+    }
+
+    /// Prepare, run, and collect a query into owned Zig rows.
+    pub fn query(self: *Connection, sql: []const u8) err.TursoError!QueryResult {
+        const stmt = try self.prepareSingle(sql);
+        defer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+            self.allocator.destroy(stmt);
+        }
+
+        const raw_column_count = stmt.columnCount();
+        if (raw_column_count < 0) {
+            return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        }
+        const column_count: usize = @intCast(raw_column_count);
+
+        var columns = try self.allocator.alloc(Column, column_count);
+        var initialized_columns: usize = 0;
+        errdefer {
+            for (columns[0..initialized_columns]) |*column| {
+                column.deinit(self.allocator);
+            }
+            self.allocator.free(columns);
+        }
+
+        for (columns, 0..) |*column, index| {
+            const name = try stmt.columnName(index);
+            const decltype = stmt.columnDecltype(index) catch |column_err| {
+                self.allocator.free(name);
+                return column_err;
+            };
+            column.* = .{
+                .name = name,
+                .decltype = decltype,
+            };
+            initialized_columns += 1;
+        }
+
+        var rows = std.array_list.Managed(Row).init(self.allocator);
+        errdefer {
+            for (rows.items) |*row| {
+                row.deinit(self.allocator);
+            }
+            rows.deinit();
+        }
+
+        while (true) {
+            switch (try stmt.step()) {
+                .TURSO_ROW => {
+                    var values = try self.allocator.alloc(value_mod.OwnedValue, column_count);
+                    var initialized_values: usize = 0;
+                    errdefer {
+                        for (values[0..initialized_values]) |*value| {
+                            value.deinit(self.allocator);
+                        }
+                        self.allocator.free(values);
+                    }
+
+                    for (values, 0..) |*value, index| {
+                        value.* = try stmt.rowValue(index);
+                        initialized_values += 1;
+                    }
+
+                    try rows.append(.{ .values = values });
+                },
+                .TURSO_DONE => break,
+                else => return err.mapStatus(c.TURSO_MISUSE, null, self.allocator),
+            }
+        }
+
+        return .{
+            .columns = columns,
+            .rows = try rows.toOwnedSlice(),
+            .allocator = self.allocator,
+        };
+    }
+
+    pub fn transaction(self: *Connection) err.TursoError!Transaction {
+        _ = try self.execute("BEGIN");
+        return .{ .conn = self };
     }
 
     /// Prepare the first SQL statement from a string that may contain multiple statements.
