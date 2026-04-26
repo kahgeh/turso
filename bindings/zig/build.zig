@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    turso_module.addIncludePath(b.path("src"));
+    turso_module.addIncludePath(b.path("../../sdk-kit"));
     turso_module.addObjectFile(sdk_kit_archive);
     turso_module.linkSystemLibrary("c", .{});
     turso_module.linkFramework("CoreFoundation", .{});
@@ -25,7 +25,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
     });
-    root_tests.root_module.addIncludePath(b.path("src"));
+    root_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     root_tests.root_module.addObjectFile(sdk_kit_archive);
     root_tests.root_module.linkSystemLibrary("c", .{});
     root_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     basic_tests.root_module.addImport("turso", turso_module);
-    basic_tests.root_module.addIncludePath(b.path("src"));
+    basic_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     basic_tests.root_module.addObjectFile(sdk_kit_archive);
     basic_tests.root_module.linkSystemLibrary("c", .{});
     basic_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     params_tests.root_module.addImport("turso", turso_module);
-    params_tests.root_module.addIncludePath(b.path("src"));
+    params_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     params_tests.root_module.addObjectFile(sdk_kit_archive);
     params_tests.root_module.linkSystemLibrary("c", .{});
     params_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -73,7 +73,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     metadata_tests.root_module.addImport("turso", turso_module);
-    metadata_tests.root_module.addIncludePath(b.path("src"));
+    metadata_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     metadata_tests.root_module.addObjectFile(sdk_kit_archive);
     metadata_tests.root_module.linkSystemLibrary("c", .{});
     metadata_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -89,7 +89,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     multi_statement_tests.root_module.addImport("turso", turso_module);
-    multi_statement_tests.root_module.addIncludePath(b.path("src"));
+    multi_statement_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     multi_statement_tests.root_module.addObjectFile(sdk_kit_archive);
     multi_statement_tests.root_module.linkSystemLibrary("c", .{});
     multi_statement_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -105,7 +105,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     regression_tests.root_module.addImport("turso", turso_module);
-    regression_tests.root_module.addIncludePath(b.path("src"));
+    regression_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     regression_tests.root_module.addObjectFile(sdk_kit_archive);
     regression_tests.root_module.linkSystemLibrary("c", .{});
     regression_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -121,7 +121,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     types_tests.root_module.addImport("turso", turso_module);
-    types_tests.root_module.addIncludePath(b.path("src"));
+    types_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     types_tests.root_module.addObjectFile(sdk_kit_archive);
     types_tests.root_module.linkSystemLibrary("c", .{});
     types_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -137,7 +137,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     errors_tests.root_module.addImport("turso", turso_module);
-    errors_tests.root_module.addIncludePath(b.path("src"));
+    errors_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     errors_tests.root_module.addObjectFile(sdk_kit_archive);
     errors_tests.root_module.linkSystemLibrary("c", .{});
     errors_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -153,7 +153,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     file_backed_tests.root_module.addImport("turso", turso_module);
-    file_backed_tests.root_module.addIncludePath(b.path("src"));
+    file_backed_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     file_backed_tests.root_module.addObjectFile(sdk_kit_archive);
     file_backed_tests.root_module.linkSystemLibrary("c", .{});
     file_backed_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -169,7 +169,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     encryption_tests.root_module.addImport("turso", turso_module);
-    encryption_tests.root_module.addIncludePath(b.path("src"));
+    encryption_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     encryption_tests.root_module.addObjectFile(sdk_kit_archive);
     encryption_tests.root_module.linkSystemLibrary("c", .{});
     encryption_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -185,7 +185,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     contention_tests.root_module.addImport("turso", turso_module);
-    contention_tests.root_module.addIncludePath(b.path("src"));
+    contention_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     contention_tests.root_module.addObjectFile(sdk_kit_archive);
     contention_tests.root_module.linkSystemLibrary("c", .{});
     contention_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -201,7 +201,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     async_io_tests.root_module.addImport("turso", turso_module);
-    async_io_tests.root_module.addIncludePath(b.path("src"));
+    async_io_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     async_io_tests.root_module.addObjectFile(sdk_kit_archive);
     async_io_tests.root_module.linkSystemLibrary("c", .{});
     async_io_tests.root_module.linkFramework("CoreFoundation", .{});
@@ -217,7 +217,7 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     high_level_tests.root_module.addImport("turso", turso_module);
-    high_level_tests.root_module.addIncludePath(b.path("src"));
+    high_level_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
     high_level_tests.root_module.addObjectFile(sdk_kit_archive);
     high_level_tests.root_module.linkSystemLibrary("c", .{});
     high_level_tests.root_module.linkFramework("CoreFoundation", .{});
