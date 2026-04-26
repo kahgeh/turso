@@ -78,6 +78,66 @@ test "transaction wrapper commits and rolls back explicitly" {
     try std.testing.expectEqual(@as(i64, 1), result.rows[0].values[0].integer);
 }
 
+test "pragma statements can be queried and updated through connection helpers" {
+    const allocator = std.testing.allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    var journal_mode = try opened.connection.query("PRAGMA journal_mode");
+    defer journal_mode.deinit();
+
+    try std.testing.expectEqual(@as(usize, 1), journal_mode.rows.len);
+    try std.testing.expectEqual(turso.val.ValueKind.text, std.meta.activeTag(journal_mode.rows[0].values[0]));
+    try std.testing.expect(journal_mode.rows[0].values[0].text.len > 0);
+
+    _ = try opened.connection.execute("PRAGMA user_version = 37");
+
+    var user_version = try opened.connection.query("PRAGMA user_version");
+    defer user_version.deinit();
+
+    try std.testing.expectEqual(@as(usize, 1), user_version.rows.len);
+    try std.testing.expectEqual(@as(i64, 37), user_version.rows[0].values[0].integer);
+}
+
+test "query rows can be mapped into caller-owned structs after transaction commit" {
+    const User = struct {
+        email: []const u8,
+        age: i64,
+    };
+
+    const allocator = std.testing.allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    _ = try opened.connection.execute("CREATE TABLE users(email TEXT, age INTEGER)");
+
+    var tx = try opened.connection.transaction();
+    try std.testing.expectEqual(@as(u64, 1), try tx.execute("INSERT INTO users(email, age) VALUES ('foo@example.com', 21)"));
+    try std.testing.expectEqual(@as(u64, 1), try tx.execute("INSERT INTO users(email, age) VALUES ('bar@example.com', 22)"));
+    try tx.commit();
+
+    var result = try opened.connection.query("SELECT email, age FROM users WHERE email LIKE '%@example.com' ORDER BY age");
+    defer result.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), result.rows.len);
+
+    const first = User{
+        .email = result.rows[0].values[0].text,
+        .age = result.rows[0].values[1].integer,
+    };
+    const second = User{
+        .email = result.rows[1].values[0].text,
+        .age = result.rows[1].values[1].integer,
+    };
+
+    try std.testing.expectEqualStrings("foo@example.com", first.email);
+    try std.testing.expectEqual(@as(i64, 21), first.age);
+    try std.testing.expectEqualStrings("bar@example.com", second.email);
+    try std.testing.expectEqual(@as(i64, 22), second.age);
+}
+
 test "async io builder keeps statement retry helpers transparent" {
     const allocator = std.testing.allocator;
     var tmp_dir = std.testing.tmpDir(.{});

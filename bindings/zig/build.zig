@@ -192,6 +192,22 @@ pub fn build(b: *std.Build) !void {
     b.default_step.dependOn(&contention_tests.step);
     const run_contention_tests = b.addRunArtifact(contention_tests);
 
+    const mvcc_tests = b.addTest(.{
+        .name = "mvcc-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/mvcc.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    mvcc_tests.root_module.addImport("turso", turso_module);
+    mvcc_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    mvcc_tests.root_module.addObjectFile(sdk_kit_archive);
+    mvcc_tests.root_module.linkSystemLibrary("c", .{});
+    mvcc_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&mvcc_tests.step);
+    const run_mvcc_tests = b.addRunArtifact(mvcc_tests);
+
     const async_io_tests = b.addTest(.{
         .name = "async-io-tests",
         .root_module = b.createModule(.{
@@ -236,6 +252,7 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_file_backed_tests.step);
     test_step.dependOn(&run_encryption_tests.step);
     test_step.dependOn(&run_contention_tests.step);
+    test_step.dependOn(&run_mvcc_tests.step);
     test_step.dependOn(&run_async_io_tests.step);
     test_step.dependOn(&run_high_level_tests.step);
 }

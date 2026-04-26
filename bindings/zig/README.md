@@ -161,6 +161,7 @@ The current test matrix covers:
 - file-backed reopen and duplicate-connection coverage
 - encryption reopen and wrong-key coverage
 - busy-timeout and concurrent-writer contention coverage
+- MVCC `BEGIN CONCURRENT` writer coverage
 - async `TURSO_IO` retry coverage
 - builder, execute/query, execute-batch, and transaction convenience coverage
 
@@ -182,6 +183,7 @@ The Zig binding is aligned with the low-level coverage in `bindings/go/bindings_
 | Row decoding and accounting | Supported | Covers INTEGER, REAL, TEXT, BLOB, NULL, `n_change`, and `lastInsertRowId()`. |
 | File-backed reopen and encryption | Supported | Covers reopen with the same key and controlled failure for wrong or missing keys. |
 | Busy timeout and contention | Supported | Covers runtime timeout changes and concurrent writer behavior. |
+| MVCC concurrent writers | Supported | Covers `PRAGMA journal_mode = 'mvcc'` plus multiple `BEGIN CONCURRENT` writer connections. |
 | Async `TURSO_IO` retry | Supported | Exercised through the public execute/step wrappers. |
 | Builder-style local construction | Supported | `turso.Builder.newLocal(...).build()` and `.connect()`. |
 | Higher-level execute/query helpers | Supported | `Connection.execute()`, `executeBatch()`, and `query()` preserve owned-copy row semantics. |
