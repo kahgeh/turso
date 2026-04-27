@@ -154,6 +154,17 @@ pub fn main() !void {
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
 - `prepareFirst()` can return a null statement when the remaining SQL contains only whitespace or comments.
 
+## Known Performance Notes
+
+`prepareSingle()` uses the existing C ABI, `turso_connection_prepare_single`.
+The Rust SDK also has a direct `rsapi` path and `prepare_cached()` support, but
+the C ABI does not expose the SDK statement cache. As a result, benchmark
+workloads that repeatedly prepare the same SQL, such as `perf/bindings`
+`prepare_step`, include C boundary and statement-wrapper overhead for Zig that
+Rust `rsapi` does not pay. See
+[tursodatabase/turso#4548](https://github.com/tursodatabase/turso/issues/4548)
+for the related prepared-statement caching issue.
+
 ## Tests
 
 Run the Zig suite through the build system:
