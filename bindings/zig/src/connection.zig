@@ -159,6 +159,7 @@ pub const Transaction = struct {
 pub const Connection = struct {
     ptr: ?*c.turso_connection_t,
     allocator: std.mem.Allocator,
+    extra_io: ?statement_mod.Statement.ExtraIo = null,
 
     /// Set busy timeout in milliseconds for the connection.
     pub fn setBusyTimeout(self: *Connection, timeout_ms: i64) err.TursoError!void {
@@ -241,6 +242,7 @@ pub const Connection = struct {
         return statement_mod.Statement{
             .ptr = stmt,
             .allocator = self.allocator,
+            .extra_io = self.extra_io,
         };
     }
 
@@ -415,6 +417,7 @@ pub const Connection = struct {
             wrapped_stmt = statement_mod.Statement{
                 .ptr = s,
                 .allocator = self.allocator,
+                .extra_io = self.extra_io,
             };
         }
 

@@ -8,6 +8,12 @@ const value_mod = @import("value.zig");
 pub const Statement = struct {
     ptr: ?*c.turso_statement_t,
     allocator: std.mem.Allocator,
+    extra_io: ?ExtraIo = null,
+
+    pub const ExtraIo = struct {
+        context: *anyopaque,
+        run: *const fn (context: *anyopaque) err.TursoError!void,
+    };
 
     pub const ExecuteResult = struct {
         status_code: status.StatusCode,
@@ -59,6 +65,9 @@ pub const Statement = struct {
         const status_code = c.turso_statement_run_io(self.ptr.?, &err_ptr);
         if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, err_ptr, self.allocator);
+        }
+        if (self.extra_io) |extra_io| {
+            try extra_io.run(extra_io.context);
         }
     }
 

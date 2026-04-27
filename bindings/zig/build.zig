@@ -5,6 +5,7 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
     // The Zig binding consumes the Rust static archive directly from the workspace build.
     const sdk_kit_archive = b.path("../../target/debug/libturso_sdk_kit.a");
+    const sync_sdk_kit_archive = b.path("../../target/debug/libturso_sync_sdk_kit.a");
 
     const turso_module = b.addModule("turso", .{
         .root_source_file = b.path("src/root.zig"),
@@ -13,7 +14,9 @@ pub fn build(b: *std.Build) !void {
     });
 
     turso_module.addIncludePath(b.path("../../sdk-kit"));
+    turso_module.addIncludePath(b.path("../../sync/sdk-kit"));
     turso_module.addObjectFile(sdk_kit_archive);
+    turso_module.addObjectFile(sync_sdk_kit_archive);
     turso_module.linkSystemLibrary("c", .{});
     turso_module.linkFramework("CoreFoundation", .{});
 
@@ -26,7 +29,9 @@ pub fn build(b: *std.Build) !void {
         }),
     });
     root_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    root_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     root_tests.root_module.addObjectFile(sdk_kit_archive);
+    root_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     root_tests.root_module.linkSystemLibrary("c", .{});
     root_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&root_tests.step);
@@ -42,7 +47,9 @@ pub fn build(b: *std.Build) !void {
     });
     basic_tests.root_module.addImport("turso", turso_module);
     basic_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    basic_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     basic_tests.root_module.addObjectFile(sdk_kit_archive);
+    basic_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     basic_tests.root_module.linkSystemLibrary("c", .{});
     basic_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&basic_tests.step);
@@ -58,7 +65,9 @@ pub fn build(b: *std.Build) !void {
     });
     params_tests.root_module.addImport("turso", turso_module);
     params_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    params_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     params_tests.root_module.addObjectFile(sdk_kit_archive);
+    params_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     params_tests.root_module.linkSystemLibrary("c", .{});
     params_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&params_tests.step);
@@ -74,7 +83,9 @@ pub fn build(b: *std.Build) !void {
     });
     metadata_tests.root_module.addImport("turso", turso_module);
     metadata_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    metadata_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     metadata_tests.root_module.addObjectFile(sdk_kit_archive);
+    metadata_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     metadata_tests.root_module.linkSystemLibrary("c", .{});
     metadata_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&metadata_tests.step);
@@ -90,7 +101,9 @@ pub fn build(b: *std.Build) !void {
     });
     multi_statement_tests.root_module.addImport("turso", turso_module);
     multi_statement_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    multi_statement_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     multi_statement_tests.root_module.addObjectFile(sdk_kit_archive);
+    multi_statement_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     multi_statement_tests.root_module.linkSystemLibrary("c", .{});
     multi_statement_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&multi_statement_tests.step);
@@ -106,7 +119,9 @@ pub fn build(b: *std.Build) !void {
     });
     regression_tests.root_module.addImport("turso", turso_module);
     regression_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    regression_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     regression_tests.root_module.addObjectFile(sdk_kit_archive);
+    regression_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     regression_tests.root_module.linkSystemLibrary("c", .{});
     regression_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&regression_tests.step);
@@ -122,7 +137,9 @@ pub fn build(b: *std.Build) !void {
     });
     types_tests.root_module.addImport("turso", turso_module);
     types_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    types_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     types_tests.root_module.addObjectFile(sdk_kit_archive);
+    types_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     types_tests.root_module.linkSystemLibrary("c", .{});
     types_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&types_tests.step);
@@ -138,7 +155,9 @@ pub fn build(b: *std.Build) !void {
     });
     errors_tests.root_module.addImport("turso", turso_module);
     errors_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    errors_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     errors_tests.root_module.addObjectFile(sdk_kit_archive);
+    errors_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     errors_tests.root_module.linkSystemLibrary("c", .{});
     errors_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&errors_tests.step);
@@ -154,7 +173,9 @@ pub fn build(b: *std.Build) !void {
     });
     file_backed_tests.root_module.addImport("turso", turso_module);
     file_backed_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    file_backed_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     file_backed_tests.root_module.addObjectFile(sdk_kit_archive);
+    file_backed_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     file_backed_tests.root_module.linkSystemLibrary("c", .{});
     file_backed_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&file_backed_tests.step);
@@ -170,7 +191,9 @@ pub fn build(b: *std.Build) !void {
     });
     encryption_tests.root_module.addImport("turso", turso_module);
     encryption_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    encryption_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     encryption_tests.root_module.addObjectFile(sdk_kit_archive);
+    encryption_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     encryption_tests.root_module.linkSystemLibrary("c", .{});
     encryption_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&encryption_tests.step);
@@ -186,7 +209,9 @@ pub fn build(b: *std.Build) !void {
     });
     contention_tests.root_module.addImport("turso", turso_module);
     contention_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    contention_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     contention_tests.root_module.addObjectFile(sdk_kit_archive);
+    contention_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     contention_tests.root_module.linkSystemLibrary("c", .{});
     contention_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&contention_tests.step);
@@ -202,7 +227,9 @@ pub fn build(b: *std.Build) !void {
     });
     mvcc_tests.root_module.addImport("turso", turso_module);
     mvcc_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    mvcc_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     mvcc_tests.root_module.addObjectFile(sdk_kit_archive);
+    mvcc_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     mvcc_tests.root_module.linkSystemLibrary("c", .{});
     mvcc_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&mvcc_tests.step);
@@ -218,7 +245,9 @@ pub fn build(b: *std.Build) !void {
     });
     async_io_tests.root_module.addImport("turso", turso_module);
     async_io_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    async_io_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     async_io_tests.root_module.addObjectFile(sdk_kit_archive);
+    async_io_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     async_io_tests.root_module.linkSystemLibrary("c", .{});
     async_io_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&async_io_tests.step);
@@ -234,11 +263,49 @@ pub fn build(b: *std.Build) !void {
     });
     high_level_tests.root_module.addImport("turso", turso_module);
     high_level_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    high_level_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
     high_level_tests.root_module.addObjectFile(sdk_kit_archive);
+    high_level_tests.root_module.addObjectFile(sync_sdk_kit_archive);
     high_level_tests.root_module.linkSystemLibrary("c", .{});
     high_level_tests.root_module.linkFramework("CoreFoundation", .{});
     b.default_step.dependOn(&high_level_tests.step);
     const run_high_level_tests = b.addRunArtifact(high_level_tests);
+
+    const sync_config_tests = b.addTest(.{
+        .name = "sync-config-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/sync_config.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    sync_config_tests.root_module.addImport("turso", turso_module);
+    sync_config_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    sync_config_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
+    sync_config_tests.root_module.addObjectFile(sdk_kit_archive);
+    sync_config_tests.root_module.addObjectFile(sync_sdk_kit_archive);
+    sync_config_tests.root_module.linkSystemLibrary("c", .{});
+    sync_config_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&sync_config_tests.step);
+    const run_sync_config_tests = b.addRunArtifact(sync_config_tests);
+
+    const sync_e2e_tests = b.addTest(.{
+        .name = "sync-e2e-tests",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/sync_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    sync_e2e_tests.root_module.addImport("turso", turso_module);
+    sync_e2e_tests.root_module.addIncludePath(b.path("../../sdk-kit"));
+    sync_e2e_tests.root_module.addIncludePath(b.path("../../sync/sdk-kit"));
+    sync_e2e_tests.root_module.addObjectFile(sdk_kit_archive);
+    sync_e2e_tests.root_module.addObjectFile(sync_sdk_kit_archive);
+    sync_e2e_tests.root_module.linkSystemLibrary("c", .{});
+    sync_e2e_tests.root_module.linkFramework("CoreFoundation", .{});
+    b.default_step.dependOn(&sync_e2e_tests.step);
+    const run_sync_e2e_tests = b.addRunArtifact(sync_e2e_tests);
 
     const test_step = b.step("test", "Run Zig binding tests");
     test_step.dependOn(&run_root_tests.step);
@@ -255,4 +322,6 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_mvcc_tests.step);
     test_step.dependOn(&run_async_io_tests.step);
     test_step.dependOn(&run_high_level_tests.step);
+    test_step.dependOn(&run_sync_config_tests.step);
+    test_step.dependOn(&run_sync_e2e_tests.step);
 }

@@ -1,6 +1,6 @@
 # Turso Zig Binding
 
-Zig bindings for [TursoDB](https://turso.tech) local database access. This package wraps the `turso_sdk_kit` C ABI and exposes thin Zig modules plus higher-level local-database convenience helpers.
+Zig bindings for [TursoDB](https://turso.tech) local database access and the sync C ABI. This package wraps the `turso_sdk_kit` and `turso_sync_sdk_kit` C APIs and exposes thin Zig modules plus higher-level convenience helpers.
 
 ## Layout
 
@@ -11,6 +11,8 @@ bindings/zig/
 ├── src/
 │   ├── root.zig
 │   ├── c.zig
+│   ├── sync.zig
+│   ├── sync_c.zig
 │   ├── connection.zig
 │   ├── database.zig
 │   ├── error.zig
@@ -29,6 +31,7 @@ bindings/zig/
     ├── params.zig
     ├── regressions.zig
     ├── support.zig
+    ├── sync_config.zig
     ├── types.zig
 ```
 
@@ -38,18 +41,20 @@ The binding is validated in this repository on macOS with the local development 
 
 ## Native Library
 
-The Zig package consumes the `turso_sdk_kit` static library produced by the Rust workspace.
+The Zig package consumes the `turso_sdk_kit` and `turso_sync_sdk_kit` static libraries produced by the Rust workspace.
 
-Build the native library first:
+Build the native libraries first:
 
 ```bash
 cargo build --package turso_sdk_kit --lib
+cargo build --package turso_sync_sdk_kit --lib
 ```
 
-The current `build.zig` expects the archive at:
+The current `build.zig` expects the archives at:
 
 ```text
 ../../target/debug/libturso_sdk_kit.a
+../../target/debug/libturso_sync_sdk_kit.a
 ```
 
 from `bindings/zig/`.
@@ -130,6 +135,8 @@ pub fn main() !void {
 
 - Zig-native layer: use `turso.Builder`, `turso.Database`, `turso.Connection`, `turso.Statement`, `Connection.rows()`, and owned-copy helpers for normal application code.
 - Raw C ABI layer: use `turso.raw` only when integrating with C-level handles or validating ABI behavior. It mirrors `sdk-kit/turso.h` and does not add Zig ownership policy.
+- Sync Zig-native layer: use `turso.sync.Builder`, `turso.sync.Database`, and sync operation helpers for synced database handles.
+- Raw sync C ABI layer: use `turso.raw_sync` only when integrating directly with `sync/sdk-kit/turso_sync.h`.
 
 ## Ownership Rules
 
@@ -174,10 +181,41 @@ The current test matrix covers:
 - MVCC `BEGIN CONCURRENT` writer coverage
 - async `TURSO_IO` retry coverage
 - builder, execute/query, execute-batch, and transaction convenience coverage
+- sync ABI import, sync builder defaults, partial sync config construction, and remote encryption reserved-byte mapping
+- sync end-to-end coverage for bootstrap, persisted bootstrap/config, pull, push, checkpoint, and partial prefix bootstrap
 
 ## Sync Layer
 
-The Zig binding is intentionally local-only for now. The exposed C ABI currently covers local database, connection, and statement handles; it does not expose the Rust sync engine configuration or lifecycle. Zig sync parity should be added as a separate wrapper only after the C ABI has an explicit sync surface to bind.
+The Zig binding now imports `sync/sdk-kit/turso_sync.h` as `turso.raw_sync` and exposes an initial native wrapper under `turso.sync`.
+
+```zig
+const std = @import("std");
+const turso = @import("turso");
+
+pub fn main() !void {
+    const allocator = std.heap.page_allocator;
+
+    var db = try turso.sync.Builder.newRemote(allocator, "local.db")
+        .withRemoteUrl("https://db.turso.io")
+        .withClientName("example-zig-client")
+        .build();
+    defer db.deinit();
+
+    var conn = try db.connect();
+    defer conn.deinit();
+
+    _ = try conn.execute("INSERT INTO notes(content) VALUES ('hello')");
+    try db.push();
+    _ = try db.pull();
+
+    var stats = try db.stats();
+    defer stats.deinit();
+}
+```
+
+Sync operations are driven synchronously by the Zig wrapper. File IO requests are handled directly by the binding. HTTP requests use a default `std.http.Client` executor, and callers can override it with `turso.sync.IoExecutor` when they need custom TLS, proxy, platform networking, or event-loop integration.
+
+`turso.sync.Changes` owns `turso_sync_changes_t` unless consumed by `Database.applyChanges()`. `turso.sync.Stats.revision` is copied into Zig-owned memory before the underlying operation is deinitialized.
 
 ## Parity Matrix
 
@@ -198,7 +236,7 @@ The Zig binding is aligned with the low-level coverage in `bindings/go/bindings_
 | Builder-style local construction | Supported | `turso.Builder.newLocal(...).build()` and `.connect()`. |
 | Higher-level execute/query helpers | Supported | `Connection.execute()`, `executeBatch()`, and `query()` preserve owned-copy row semantics. |
 | Transaction ergonomics | Supported | `Connection.transaction()` with explicit `commit()` / `rollback()`. |
-| Rust sync layer | Not modeled | Local-only by design until the C ABI exposes sync primitives. |
+| Rust sync layer | Supported | Zig binds `sync/sdk-kit/turso_sync.h`, links `turso_sync_sdk_kit`, exposes config/lifecycle wrappers, drives sync IO, and provides default HTTP execution with a custom executor escape hatch. |
 | DSN parsing and connector options | Not modeled | Zig binds the direct C ABI and does not expose a Go-style connector layer. |
 | Default busy-timeout connector tests | Not modeled | There is no Zig connector abstraction to host DSN precedence checks. |
 | Higher-level `sql.DB` driver integration | Not modeled | Out of scope for the thin Zig wrapper. |
