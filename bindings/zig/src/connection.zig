@@ -284,7 +284,7 @@ pub const Connection = struct {
             stmt.finalize() catch {};
             stmt.deinit();
         }
-        return stmt.execute();
+        return stmt.execute(.{});
     }
 
     /// Prepare and execute a zero-terminated SQL statement without allocating
@@ -295,7 +295,7 @@ pub const Connection = struct {
             stmt.finalize() catch {};
             stmt.deinit();
         }
-        return stmt.execute();
+        return stmt.execute(.{});
     }
 
     /// Prepare and execute SQL while capturing engine diagnostics on failure.
@@ -336,7 +336,7 @@ pub const Connection = struct {
                 stmt.deinit();
             }
 
-            total_changes += try stmt.execute();
+            total_changes += try stmt.execute(.{});
             start += result.tail_idx;
         }
 

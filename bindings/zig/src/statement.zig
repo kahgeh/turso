@@ -20,8 +20,14 @@ pub const Statement = struct {
         changes: u64,
     };
 
-    /// Execute a single statement to completion. Returns row changes count or TursoError.
-    pub fn execute(self: *Statement) err.TursoError!u64 {
+    /// Execute a single statement to completion. If positional parameters are
+    /// provided as a tuple, the statement is reset and parameters are rebound
+    /// before execution. Pass `.{}` to execute with existing bindings.
+    pub fn execute(self: *Statement, params: anytype) err.TursoError!u64 {
+        if (try self.bindExecuteParams(params)) {
+            try self.reset();
+            try self.bindParams(params);
+        }
         return self.executeSync(null);
     }
 
@@ -119,16 +125,93 @@ pub const Statement = struct {
         }
     }
 
-    /// Bind a TEXT value to a positional parameter (1-indexed). Returns TursoError on failure.
-    pub fn bindText(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
-        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
-        var ptr: [*]const u8 = "";
-        if (value.len > 0) {
-            ptr = value.ptr;
+    /// Bind a TEXT value to a positional parameter (1-indexed). String literals
+    /// use a borrowed static bind; runtime slices are copied for safety.
+    pub fn bindText(self: *Statement, position: usize, value: anytype) err.TursoError!void {
+        if (comptime isStaticText(@TypeOf(value))) {
+            const text: []const u8 = value;
+            return self.bindTextStaticInternal(position, text);
         }
+
+        const text: []const u8 = value;
+        return self.bindTextOwned(position, text);
+    }
+
+    fn bindTextOwned(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        const ptr = if (value.len > 0) value.ptr else "";
         const status_code = c.turso_statement_bind_positional_text(self.ptr.?, position, ptr, value.len);
         if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    fn bindTextStaticInternal(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        const status_code = c.turso_statement_bind_positional_text_static(self.ptr.?, position, value.ptr, value.len);
+        if (status_code != c.TURSO_OK) {
+            return err.mapStatus(status_code, null, self.allocator);
+        }
+    }
+
+    fn bindExecuteParams(self: *Statement, params: anytype) err.TursoError!bool {
+        _ = self;
+        const T = @TypeOf(params);
+        return switch (@typeInfo(T)) {
+            .@"struct" => |info| blk: {
+                if (!info.is_tuple) @compileError("execute params must be a tuple, e.g. .{ id, \"value\" }");
+                break :blk info.fields.len != 0;
+            },
+            else => @compileError("execute params must be a tuple, e.g. .{} or .{ id, \"value\" }"),
+        };
+    }
+
+    fn bindParams(self: *Statement, params: anytype) err.TursoError!void {
+        const T = @TypeOf(params);
+        switch (@typeInfo(T)) {
+            .@"struct" => |info| {
+                if (!info.is_tuple) @compileError("execute params must be a tuple");
+                inline for (info.fields, 0..) |field, index| {
+                    try self.bindValue(index + 1, @field(params, field.name));
+                }
+            },
+            else => @compileError("execute params must be a tuple"),
+        }
+    }
+
+    fn bindValue(self: *Statement, position: usize, value: anytype) err.TursoError!void {
+        const T = @TypeOf(value);
+        switch (@typeInfo(T)) {
+            .null => try self.bindNull(position),
+            .bool => try self.bindInt(position, if (value) 1 else 0),
+            .int, .comptime_int => try self.bindInt(position, @intCast(value)),
+            .float, .comptime_float => try self.bindDouble(position, @floatCast(value)),
+            .optional => {
+                if (value) |unwrapped| {
+                    try self.bindValue(position, unwrapped);
+                } else {
+                    try self.bindNull(position);
+                }
+            },
+            .pointer => |ptr| switch (ptr.size) {
+                .slice, .many => {
+                    if (ptr.child != u8) @compileError("only []u8/[]const u8 slices are supported as text params");
+                    try self.bindText(position, value);
+                },
+                .one => switch (@typeInfo(ptr.child)) {
+                    .array => |array| {
+                        if (array.child != u8) @compileError("only u8 arrays are supported as text params");
+                        try self.bindText(position, value);
+                    },
+                    else => @compileError("unsupported pointer param type"),
+                },
+                else => @compileError("unsupported pointer param type"),
+            },
+            .array => |array| {
+                if (array.child != u8) @compileError("only u8 arrays are supported as text params");
+                try self.bindText(position, value[0..]);
+            },
+            else => @compileError("unsupported execute param type"),
         }
     }
 
@@ -339,3 +422,13 @@ pub const Statement = struct {
         self.ptr = null;
     }
 };
+
+fn isStaticText(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .pointer => |ptr| ptr.is_const and ptr.size == .one and switch (@typeInfo(ptr.child)) {
+            .array => |array| array.child == u8 and array.sentinel() != null and array.sentinel().? == 0,
+            else => false,
+        },
+        else => false,
+    };
+}

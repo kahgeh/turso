@@ -14,7 +14,7 @@ test "column metadata returns owned copies and declared types" {
         "CREATE TABLE t(id INTEGER, name TEXT)",
     );
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(
         allocator,
@@ -22,7 +22,7 @@ test "column metadata returns owned copies and declared types" {
         "INSERT INTO t(id, name) VALUES (1, 'alice')",
     );
     defer insert_stmt.deinit();
-    _ = try insert_stmt.stmt.execute();
+    _ = try insert_stmt.stmt.execute(.{});
 
     var query_stmt = try support.prepare(
         allocator,

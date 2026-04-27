@@ -65,6 +65,7 @@ pub const turso_statement_bind_positional_null = raw_c.turso_statement_bind_posi
 pub const turso_statement_bind_positional_int = raw_c.turso_statement_bind_positional_int;
 pub const turso_statement_bind_positional_double = raw_c.turso_statement_bind_positional_double;
 pub const turso_statement_bind_positional_text = raw_c.turso_statement_bind_positional_text;
+pub const turso_statement_bind_positional_text_static = raw_c.turso_statement_bind_positional_text_static;
 pub const turso_statement_bind_positional_blob = raw_c.turso_statement_bind_positional_blob;
 pub const turso_statement_deinit = raw_c.turso_statement_deinit;
 

@@ -309,6 +309,14 @@ turso_statement_bind_positional_text(
     const char *ptr,
     /* length of TEXT slice */
     size_t len);
+turso_status_code_t
+turso_statement_bind_positional_text_static(
+    const turso_statement_t *self,
+    size_t position,
+    /* pointer to the start of a static TEXT slice */
+    const char *ptr,
+    /* length of TEXT slice */
+    size_t len);
 
 /** Deallocate C string allocated by Turso */
 void turso_str_deinit(const char *self);

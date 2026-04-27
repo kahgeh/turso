@@ -14,7 +14,7 @@ test "row value kinds and accounting are preserved across statement transitions"
         "CREATE TABLE t(i INTEGER, r REAL, s TEXT, b BLOB, n INTEGER)",
     );
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(
         allocator,
@@ -23,7 +23,7 @@ test "row value kinds and accounting are preserved across statement transitions"
     );
     defer insert_stmt.deinit();
 
-    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute(.{}));
     try std.testing.expectEqual(@as(i64, 1), insert_stmt.stmt.nChange());
     try std.testing.expectEqual(@as(i64, 1), fixture.conn.lastInsertRowId());
 

@@ -28,6 +28,13 @@ def load_rows(path: Path) -> list[dict]:
     return rows
 
 
+def workload_label(workload: str) -> str:
+    return {
+        "insert_txn_execute": "stmt.execute",
+        "insert_txn_step": "stmt.step",
+    }.get(workload, workload)
+
+
 def render(rows: list[dict]) -> str:
     workloads = sorted({row["workload"] for row in rows})
     bindings = sorted({row["binding"] for row in rows})
@@ -53,7 +60,7 @@ def render(rows: list[dict]) -> str:
         cards.append(
             f"""
             <section class="card">
-              <h2>{html.escape(workload)}</h2>
+              <h2>{html.escape(workload_label(workload))}</h2>
               {''.join(bars)}
             </section>
             """
@@ -62,7 +69,7 @@ def render(rows: list[dict]) -> str:
     table_rows = "\n".join(
         f"""
         <tr>
-          <td>{html.escape(row["workload"])}</td>
+          <td>{html.escape(workload_label(row["workload"]))}</td>
           <td>{html.escape(row["binding"])}</td>
           <td>{int(row["rows"]):,}</td>
           <td>{int(row["iters"]):,}</td>

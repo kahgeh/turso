@@ -25,7 +25,8 @@ Implemented workloads:
 - `open_database`: build an in-memory database repeatedly.
 - `open_close`: build an in-memory database and connection repeatedly.
 - `prepare_step`: prepare `SELECT 1` and step it to completion.
-- `insert_txn`: insert `rows` rows inside one transaction.
+- `stmt.execute`: insert `rows` rows using statement execute with params.
+- `stmt.step`: insert `rows` rows using explicit reset/bind/step calls.
 - `point_select`: load `rows` indexed rows, then perform `rows` indexed lookups.
 - `scan_borrowed`: load `rows` rows, then scan ids through the thinnest available value path.
 - `scan_owned`: load `rows` rows, then scan and materialize owned row values.

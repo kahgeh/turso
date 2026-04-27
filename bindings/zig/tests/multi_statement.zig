@@ -37,7 +37,7 @@ test "prepareFirst iterates through multiple statements" {
         }
 
         if (stmt.columnCount() == 0) {
-            _ = try stmt.execute();
+            _ = try stmt.execute(.{});
         } else {
             while (true) {
                 const step_status = try stmt.step();

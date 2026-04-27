@@ -15,7 +15,8 @@ enum Workload {
     OpenDatabase,
     OpenClose,
     PrepareStep,
-    InsertTxn,
+    InsertTxnExecute,
+    InsertTxnStep,
     PointSelect,
     ScanBorrowed,
     ScanOwned,
@@ -28,7 +29,9 @@ impl Workload {
             "open_database" => Ok(Self::OpenDatabase),
             "open_close" => Ok(Self::OpenClose),
             "prepare_step" => Ok(Self::PrepareStep),
-            "insert_txn" => Ok(Self::InsertTxn),
+            "insert_txn" => Ok(Self::InsertTxnExecute),
+            "insert_txn_execute" => Ok(Self::InsertTxnExecute),
+            "insert_txn_step" => Ok(Self::InsertTxnStep),
             "point_select" => Ok(Self::PointSelect),
             "scan_borrowed" => Ok(Self::ScanBorrowed),
             "scan_owned" => Ok(Self::ScanOwned),
@@ -42,7 +45,8 @@ impl Workload {
             Self::OpenDatabase => "open_database",
             Self::OpenClose => "open_close",
             Self::PrepareStep => "prepare_step",
-            Self::InsertTxn => "insert_txn",
+            Self::InsertTxnExecute => "insert_txn_execute",
+            Self::InsertTxnStep => "insert_txn_step",
             Self::PointSelect => "point_select",
             Self::ScanBorrowed => "scan_borrowed",
             Self::ScanOwned => "scan_owned",
@@ -116,7 +120,8 @@ async fn main() {
         Workload::OpenDatabase => open_database(args.rows, args.iters).await,
         Workload::OpenClose => open_close(args.rows, args.iters).await,
         Workload::PrepareStep => prepare_step(args.rows, args.iters),
-        Workload::InsertTxn => insert_txn(args.rows, args.iters).await,
+        Workload::InsertTxnExecute => insert_txn_execute(args.rows, args.iters).await,
+        Workload::InsertTxnStep => insert_txn_step(args.rows, args.iters),
         Workload::PointSelect => point_select(args.rows, args.iters).await,
         Workload::ScanBorrowed => scan_borrowed(args.rows, args.iters),
         Workload::ScanOwned => scan_owned(args.rows, args.iters),
@@ -139,7 +144,7 @@ async fn main() {
 
 fn print_help() {
     eprintln!(
-        "usage: binding-bench-rust [--workload open_database|open_close|prepare_step|insert_txn|point_select|scan_borrowed|scan_owned|query_collect] [--rows N] [--iters N]"
+        "usage: binding-bench-rust [--workload open_database|open_close|prepare_step|insert_txn_execute|insert_txn_step|point_select|scan_borrowed|scan_owned|query_collect] [--rows N] [--iters N]"
     );
 }
 
@@ -206,7 +211,7 @@ fn prepare_step(rows: usize, iters: usize) -> BenchResult {
     Ok((started.elapsed().as_secs_f64() * 1000.0, reps))
 }
 
-async fn insert_txn(rows: usize, iters: usize) -> BenchResult {
+async fn insert_txn_execute(rows: usize, iters: usize) -> BenchResult {
     let db = Builder::new_local(":memory:").build().await?;
     let conn = db.connect()?;
     conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)", ())
@@ -225,6 +230,33 @@ async fn insert_txn(rows: usize, iters: usize) -> BenchResult {
             inserted += 1;
         }
         conn.execute("COMMIT", ()).await?;
+    }
+    Ok((started.elapsed().as_secs_f64() * 1000.0, inserted))
+}
+
+fn insert_txn_step(rows: usize, iters: usize) -> BenchResult {
+    let (_db, conn) = sdk_open_connect()?;
+    sdk_exec(&conn, "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)")?;
+
+    let started = Instant::now();
+    let mut inserted = 0;
+    for iter in 0..iters {
+        sdk_exec(&conn, "BEGIN")?;
+        let mut stmt = sdk(conn.prepare_single("INSERT INTO t(id, value) VALUES (?1, ?2)"))?;
+        for row in 0..rows {
+            sdk(stmt.reset())?;
+            sdk(stmt.bind_positional(1, SdkValue::from_i64((iter * rows + row) as i64)))?;
+            sdk(stmt.bind_positional(2, SdkValue::build_text("payload")))?;
+            loop {
+                match sdk(stmt.step(None))? {
+                    TursoStatusCode::Row => {}
+                    TursoStatusCode::Done => break,
+                    TursoStatusCode::Io => sdk(stmt.run_io())?,
+                }
+            }
+            inserted += 1;
+        }
+        sdk_exec(&conn, "COMMIT")?;
     }
     Ok((started.elapsed().as_secs_f64() * 1000.0, inserted))
 }

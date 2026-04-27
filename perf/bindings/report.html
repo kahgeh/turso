@@ -105,27 +105,48 @@
         <h1>Turso Binding Benchmark</h1>
         <div class="subtle">Throughput by workload and binding</div>
       </div>
-      <div class="meta">bindings: rust, zig<br>workloads: 8</div>
+      <div class="meta">bindings: rust, zig<br>workloads: 9</div>
     </header>
     <div class="grid">
       
             <section class="card">
-              <h2>insert_txn</h2>
+              <h2>stmt.execute</h2>
+              
+                <div class="bar-row">
+                  <div class="label">rust</div>
+                  <div class="bar-wrap">
+                    <div class="bar rust" style="width:92.35%"></div>
+                  </div>
+                  <div class="value">1,715,838 ops/s</div>
+                </div>
+                
+                <div class="bar-row">
+                  <div class="label">zig</div>
+                  <div class="bar-wrap">
+                    <div class="bar zig" style="width:100.00%"></div>
+                  </div>
+                  <div class="value">1,857,873 ops/s</div>
+                </div>
+                
+            </section>
+            
+            <section class="card">
+              <h2>stmt.step</h2>
               
                 <div class="bar-row">
                   <div class="label">rust</div>
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">1,742,287 ops/s</div>
+                  <div class="value">1,909,612 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:85.45%"></div>
+                    <div class="bar zig" style="width:94.77%"></div>
                   </div>
-                  <div class="value">1,488,834 ops/s</div>
+                  <div class="value">1,809,728 ops/s</div>
                 </div>
                 
             </section>
@@ -138,15 +159,15 @@
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">18,940 ops/s</div>
+                  <div class="value">18,769 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:72.83%"></div>
+                    <div class="bar zig" style="width:73.67%"></div>
                   </div>
-                  <div class="value">13,794 ops/s</div>
+                  <div class="value">13,826 ops/s</div>
                 </div>
                 
             </section>
@@ -159,15 +180,15 @@
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">19,719 ops/s</div>
+                  <div class="value">19,626 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:70.22%"></div>
+                    <div class="bar zig" style="width:72.73%"></div>
                   </div>
-                  <div class="value">13,846 ops/s</div>
+                  <div class="value">14,274 ops/s</div>
                 </div>
                 
             </section>
@@ -178,9 +199,9 @@
                 <div class="bar-row">
                   <div class="label">rust</div>
                   <div class="bar-wrap">
-                    <div class="bar rust" style="width:89.18%"></div>
+                    <div class="bar rust" style="width:85.22%"></div>
                   </div>
-                  <div class="value">1,927,916 ops/s</div>
+                  <div class="value">1,884,966 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
@@ -188,7 +209,7 @@
                   <div class="bar-wrap">
                     <div class="bar zig" style="width:100.00%"></div>
                   </div>
-                  <div class="value">2,161,902 ops/s</div>
+                  <div class="value">2,211,845 ops/s</div>
                 </div>
                 
             </section>
@@ -201,15 +222,15 @@
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">883,928 ops/s</div>
+                  <div class="value">883,548 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:74.68%"></div>
+                    <div class="bar zig" style="width:76.09%"></div>
                   </div>
-                  <div class="value">660,140 ops/s</div>
+                  <div class="value">672,317 ops/s</div>
                 </div>
                 
             </section>
@@ -222,15 +243,15 @@
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">7,383,852 ops/s</div>
+                  <div class="value">7,433,415 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:97.65%"></div>
+                    <div class="bar zig" style="width:99.75%"></div>
                   </div>
-                  <div class="value">7,210,083 ops/s</div>
+                  <div class="value">7,415,042 ops/s</div>
                 </div>
                 
             </section>
@@ -241,17 +262,17 @@
                 <div class="bar-row">
                   <div class="label">rust</div>
                   <div class="bar-wrap">
-                    <div class="bar rust" style="width:100.00%"></div>
+                    <div class="bar rust" style="width:93.68%"></div>
                   </div>
-                  <div class="value">17,543,860 ops/s</div>
+                  <div class="value">15,570,907 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:93.08%"></div>
+                    <div class="bar zig" style="width:100.00%"></div>
                   </div>
-                  <div class="value">16,330,263 ops/s</div>
+                  <div class="value">16,620,499 ops/s</div>
                 </div>
                 
             </section>
@@ -264,15 +285,15 @@
                   <div class="bar-wrap">
                     <div class="bar rust" style="width:100.00%"></div>
                   </div>
-                  <div class="value">10,271,053 ops/s</div>
+                  <div class="value">9,850,858 ops/s</div>
                 </div>
                 
                 <div class="bar-row">
                   <div class="label">zig</div>
                   <div class="bar-wrap">
-                    <div class="bar zig" style="width:83.08%"></div>
+                    <div class="bar zig" style="width:81.79%"></div>
                   </div>
-                  <div class="value">8,532,812 ops/s</div>
+                  <div class="value">8,057,304 ops/s</div>
                 </div>
                 
             </section>
@@ -293,24 +314,46 @@
       <tbody>
         
         <tr>
-          <td>insert_txn</td>
+          <td>stmt.execute</td>
           <td>rust</td>
           <td>1,000</td>
           <td>3</td>
-          <td>1.722</td>
+          <td>1.748</td>
           <td>3,000</td>
-          <td>1,742,287</td>
+          <td>1,715,838</td>
         </tr>
         
 
         <tr>
-          <td>insert_txn</td>
+          <td>stmt.execute</td>
           <td>zig</td>
           <td>1,000</td>
           <td>3</td>
-          <td>2.015</td>
+          <td>1.615</td>
           <td>3,000</td>
-          <td>1,488,834</td>
+          <td>1,857,873</td>
+        </tr>
+        
+
+        <tr>
+          <td>stmt.step</td>
+          <td>rust</td>
+          <td>1,000</td>
+          <td>3</td>
+          <td>1.571</td>
+          <td>3,000</td>
+          <td>1,909,612</td>
+        </tr>
+        
+
+        <tr>
+          <td>stmt.step</td>
+          <td>zig</td>
+          <td>1,000</td>
+          <td>3</td>
+          <td>1.658</td>
+          <td>3,000</td>
+          <td>1,809,728</td>
         </tr>
         
 
@@ -319,9 +362,9 @@
           <td>rust</td>
           <td>100</td>
           <td>3</td>
-          <td>15.839</td>
+          <td>15.984</td>
           <td>300</td>
-          <td>18,940</td>
+          <td>18,769</td>
         </tr>
         
 
@@ -330,9 +373,9 @@
           <td>zig</td>
           <td>100</td>
           <td>3</td>
-          <td>21.749</td>
+          <td>21.698</td>
           <td>300</td>
-          <td>13,794</td>
+          <td>13,826</td>
         </tr>
         
 
@@ -341,9 +384,9 @@
           <td>rust</td>
           <td>100</td>
           <td>3</td>
-          <td>15.214</td>
+          <td>15.286</td>
           <td>300</td>
-          <td>19,719</td>
+          <td>19,626</td>
         </tr>
         
 
@@ -352,9 +395,9 @@
           <td>zig</td>
           <td>100</td>
           <td>3</td>
-          <td>21.667</td>
+          <td>21.017</td>
           <td>300</td>
-          <td>13,846</td>
+          <td>14,274</td>
         </tr>
         
 
@@ -363,9 +406,9 @@
           <td>rust</td>
           <td>1,000</td>
           <td>3</td>
-          <td>1.556</td>
+          <td>1.592</td>
           <td>3,000</td>
-          <td>1,927,916</td>
+          <td>1,884,966</td>
         </tr>
         
 
@@ -374,9 +417,9 @@
           <td>zig</td>
           <td>1,000</td>
           <td>3</td>
-          <td>1.388</td>
+          <td>1.356</td>
           <td>3,000</td>
-          <td>2,161,902</td>
+          <td>2,211,845</td>
         </tr>
         
 
@@ -385,9 +428,9 @@
           <td>rust</td>
           <td>5,000</td>
           <td>3</td>
-          <td>16.970</td>
+          <td>16.977</td>
           <td>15,000</td>
-          <td>883,928</td>
+          <td>883,548</td>
         </tr>
         
 
@@ -396,9 +439,9 @@
           <td>zig</td>
           <td>5,000</td>
           <td>3</td>
-          <td>22.722</td>
+          <td>22.311</td>
           <td>15,000</td>
-          <td>660,140</td>
+          <td>672,317</td>
         </tr>
         
 
@@ -407,9 +450,9 @@
           <td>rust</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.406</td>
+          <td>0.404</td>
           <td>3,000</td>
-          <td>7,383,852</td>
+          <td>7,433,415</td>
         </tr>
         
 
@@ -418,9 +461,9 @@
           <td>zig</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.416</td>
+          <td>0.405</td>
           <td>3,000</td>
-          <td>7,210,083</td>
+          <td>7,415,042</td>
         </tr>
         
 
@@ -429,9 +472,9 @@
           <td>rust</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.171</td>
+          <td>0.193</td>
           <td>3,000</td>
-          <td>17,543,860</td>
+          <td>15,570,907</td>
         </tr>
         
 
@@ -440,9 +483,9 @@
           <td>zig</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.184</td>
+          <td>0.181</td>
           <td>3,000</td>
-          <td>16,330,263</td>
+          <td>16,620,499</td>
         </tr>
         
 
@@ -451,9 +494,9 @@
           <td>rust</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.292</td>
+          <td>0.305</td>
           <td>3,000</td>
-          <td>10,271,053</td>
+          <td>9,850,858</td>
         </tr>
         
 
@@ -462,9 +505,9 @@
           <td>zig</td>
           <td>1,000</td>
           <td>3</td>
-          <td>0.352</td>
+          <td>0.372</td>
           <td>3,000</td>
-          <td>8,532,812</td>
+          <td>8,057,304</td>
         </tr>
         
       </tbody>

@@ -107,14 +107,14 @@ pub fn main() !void {
         create_stmt.finalize() catch {};
         create_stmt.deinit();
     }
-    _ = try create_stmt.execute();
+    _ = try create_stmt.execute(.{});
 
     var insert_stmt = try conn.prepareSingle("INSERT INTO t(name) VALUES ('"'"'ada'"'"')");
     defer {
         insert_stmt.finalize() catch {};
         insert_stmt.deinit();
     }
-    _ = try insert_stmt.execute();
+    _ = try insert_stmt.execute(.{});
 
     var query_stmt = try conn.prepareSingle("SELECT id, name FROM t");
     defer {
@@ -147,7 +147,7 @@ pub fn main() !void {
 - `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
 - `Connection.rows()` streams row views; borrowed text/blob slices are valid until the next step, reset, finalize, or `Rows.deinit()`.
 - Pass `err.Diagnostic` to diagnostic variants such as `executeWithDiagnostic()` to keep engine error messages.
-- `Statement.execute()` and `step()` auto-drive `TURSO_IO`; `executeOnce()` and `stepOnce()` expose it to caller-managed event loops.
+- `Statement.execute(.{})` and `step()` auto-drive `TURSO_IO`; `executeOnce()` and `stepOnce()` expose it to caller-managed event loops.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
 - `Statement.namedPosition()` returns `!?usize`; null means the named parameter is absent.
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
@@ -234,7 +234,7 @@ The Zig binding is aligned with the low-level coverage in `bindings/go/bindings_
 | MVCC concurrent writers | Supported | Covers `PRAGMA journal_mode = 'mvcc'` plus multiple `BEGIN CONCURRENT` writer connections. |
 | Async `TURSO_IO` retry | Supported | Exercised through the public execute/step wrappers. |
 | Builder-style local construction | Supported | `turso.Builder.newLocal(...).build()` and `.connect()`. |
-| Higher-level execute/query helpers | Supported | `Connection.execute()`, `executeBatch()`, and `query()` preserve owned-copy row semantics. |
+| Higher-level execute/query helpers | Supported | `Connection.execute(.{})`, `executeBatch()`, and `query()` preserve owned-copy row semantics. |
 | Transaction ergonomics | Supported | `Connection.transaction()` with explicit `commit()` / `rollback()`. |
 | Rust sync layer | Supported | Zig binds `sync/sdk-kit/turso_sync.h`, links `turso_sync_sdk_kit`, exposes config/lifecycle wrappers, drives sync IO, and provides default HTTP execution with a custom executor escape hatch. |
 | DSN parsing and connector options | Not modeled | Zig binds the direct C ABI and does not expose a Go-style connector layer. |

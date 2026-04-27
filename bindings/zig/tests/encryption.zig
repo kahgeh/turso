@@ -46,11 +46,11 @@ test "encrypted files reopen with the same key" {
 
         var create_stmt = try support.prepare(allocator, &conn, "CREATE TABLE t(value TEXT)");
         defer create_stmt.deinit();
-        _ = try create_stmt.stmt.execute();
+        _ = try create_stmt.stmt.execute(.{});
 
         var insert_stmt = try support.prepare(allocator, &conn, "INSERT INTO t(value) VALUES ('secret')");
         defer insert_stmt.deinit();
-        try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
+        try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute(.{}));
     }
 
     {
@@ -89,7 +89,7 @@ test "wrong key and unencrypted reopen fail to open encrypted files" {
 
         var create_stmt = try support.prepare(allocator, &conn, "CREATE TABLE t(value TEXT)");
         defer create_stmt.deinit();
-        _ = try create_stmt.stmt.execute();
+        _ = try create_stmt.stmt.execute(.{});
     }
 
     try expectOpenFailure(allocator, .{

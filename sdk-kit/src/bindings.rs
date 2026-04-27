@@ -339,6 +339,14 @@ unsafe extern "C" {
     ) -> turso_status_code_t;
 }
 unsafe extern "C" {
+    pub fn turso_statement_bind_positional_text_static(
+        self_: *const turso_statement_t,
+        position: usize,
+        ptr: *const ::std::os::raw::c_char,
+        len: usize,
+    ) -> turso_status_code_t;
+}
+unsafe extern "C" {
     #[doc = " Deallocate C string allocated by Turso"]
     pub fn turso_str_deinit(self_: *const ::std::os::raw::c_char);
 }

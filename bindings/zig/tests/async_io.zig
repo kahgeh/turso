@@ -31,11 +31,11 @@ test "async io databases retry execute and step transparently" {
 
     var create_stmt = try support.prepare(allocator, &conn, "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(allocator, &conn, "INSERT INTO t(value) VALUES ('alpha')");
     defer insert_stmt.deinit();
-    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute(.{}));
 
     var select_stmt = try support.prepare(allocator, &conn, "SELECT value FROM t WHERE id = 1");
     defer select_stmt.deinit();
@@ -79,7 +79,7 @@ test "async io can be driven explicitly" {
 
     var insert_stmt = try support.prepare(allocator, &conn, "INSERT INTO t(value) VALUES ('explicit')");
     defer insert_stmt.deinit();
-    _ = try insert_stmt.stmt.execute();
+    _ = try insert_stmt.stmt.execute(.{});
 
     var select_stmt = try support.prepare(allocator, &conn, "SELECT value FROM t");
     defer select_stmt.deinit();

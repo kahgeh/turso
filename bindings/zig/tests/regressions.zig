@@ -10,7 +10,7 @@ test "insert returning survives partial fetch after finalize" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INT)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES (1),(2) RETURNING a");
     defer stmt.deinit();
@@ -34,11 +34,11 @@ test "insert returning survives explicit transaction with partial fetch" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INT)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var begin_stmt = try support.prepare(allocator, &fixture.conn, "BEGIN");
     defer begin_stmt.deinit();
-    _ = try begin_stmt.stmt.execute();
+    _ = try begin_stmt.stmt.execute(.{});
 
     var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES (10),(20) RETURNING a");
     defer stmt.deinit();
@@ -49,7 +49,7 @@ test "insert returning survives explicit transaction with partial fetch" {
 
     var commit_stmt = try support.prepare(allocator, &fixture.conn, "COMMIT");
     defer commit_stmt.deinit();
-    _ = try commit_stmt.stmt.execute();
+    _ = try commit_stmt.stmt.execute(.{});
 
     var count_stmt = try support.prepare(allocator, &fixture.conn, "SELECT COUNT(*) FROM t");
     defer count_stmt.deinit();
@@ -65,11 +65,11 @@ test "on conflict do nothing returning yields no rows" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INT PRIMARY KEY)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES(1)");
     defer insert_stmt.deinit();
-    _ = try insert_stmt.stmt.execute();
+    _ = try insert_stmt.stmt.execute(.{});
 
     var stmt = try support.prepare(
         allocator,
@@ -94,11 +94,11 @@ test "subqueries joins alter table generate_series and json helpers" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INT)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES (1),(2),(3),(4)");
     defer insert_stmt.deinit();
-    _ = try insert_stmt.stmt.execute();
+    _ = try insert_stmt.stmt.execute(.{});
 
     var subquery_stmt = try support.prepare(
         allocator,
@@ -120,16 +120,16 @@ test "subqueries joins alter table generate_series and json helpers" {
 
     var join_schema = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t1(id INT PRIMARY KEY, name TEXT)");
     defer join_schema.deinit();
-    _ = try join_schema.stmt.execute();
+    _ = try join_schema.stmt.execute(.{});
     var join_schema2 = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t2(id INT PRIMARY KEY, age INT)");
     defer join_schema2.deinit();
-    _ = try join_schema2.stmt.execute();
+    _ = try join_schema2.stmt.execute(.{});
     var join_insert1 = try support.prepare(allocator, &fixture.conn, "INSERT INTO t1(id, name) VALUES (1,'a'),(2,'b'),(3,'c')");
     defer join_insert1.deinit();
-    _ = try join_insert1.stmt.execute();
+    _ = try join_insert1.stmt.execute(.{});
     var join_insert2 = try support.prepare(allocator, &fixture.conn, "INSERT INTO t2(id, age) VALUES (1,10),(3,30)");
     defer join_insert2.deinit();
-    _ = try join_insert2.stmt.execute();
+    _ = try join_insert2.stmt.execute(.{});
 
     var join_stmt = try support.prepare(
         allocator,
@@ -161,13 +161,13 @@ test "subqueries joins alter table generate_series and json helpers" {
 
     var alter_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t3(id INT PRIMARY KEY)");
     defer alter_stmt.deinit();
-    _ = try alter_stmt.stmt.execute();
+    _ = try alter_stmt.stmt.execute(.{});
     var alter_stmt2 = try support.prepare(allocator, &fixture.conn, "ALTER TABLE t3 ADD COLUMN name TEXT");
     defer alter_stmt2.deinit();
-    _ = try alter_stmt2.stmt.execute();
+    _ = try alter_stmt2.stmt.execute(.{});
     var alter_insert = try support.prepare(allocator, &fixture.conn, "INSERT INTO t3(id, name) VALUES(1, 'hello')");
     defer alter_insert.deinit();
-    _ = try alter_insert.stmt.execute();
+    _ = try alter_insert.stmt.execute(.{});
     var alter_query = try support.prepare(allocator, &fixture.conn, "SELECT name FROM t3 WHERE id = 1");
     defer alter_query.deinit();
     try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try alter_query.stmt.step());

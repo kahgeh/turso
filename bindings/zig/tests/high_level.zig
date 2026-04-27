@@ -27,8 +27,7 @@ test "default local builder and prepare use zero-terminated fast paths" {
         stmt.finalize() catch {};
         stmt.deinit();
     }
-    try stmt.bindText(1, "fast");
-    try std.testing.expectEqual(@as(u64, 1), try stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try stmt.execute(.{"fast"}));
 
     var query = try opened.connection.prepareSingle("SELECT value FROM t");
     defer {
@@ -53,6 +52,45 @@ test "default local builder and prepare use zero-terminated fast paths" {
     const dynamic_value = try dynamic_query.rowValueText(0);
     defer allocator.free(dynamic_value);
     try std.testing.expectEqualStrings("fast", dynamic_value);
+}
+
+test "prepared dml can execute done and bind text literals without copies" {
+    const allocator = std.testing.allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    _ = try opened.connection.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)");
+
+    var stmt = try opened.connection.prepareSingle("INSERT INTO t(id, value) VALUES (?1, ?2)");
+    defer {
+        stmt.finalize() catch {};
+        stmt.deinit();
+    }
+
+    try stmt.bindInt(1, 1);
+    try stmt.bindText(2, "static-payload");
+    try std.testing.expectEqual(turso.status.StatusCode.TURSO_DONE, try stmt.step());
+
+    var result = try opened.connection.query("SELECT value FROM t WHERE id = 1");
+    defer result.deinit();
+
+    try std.testing.expectEqual(@as(usize, 1), result.rows.len);
+    try std.testing.expectEqualStrings("static-payload", result.rows[0].values[0].text);
+
+    const dynamic_value = try std.fmt.allocPrint(allocator, "dynamic-payload", .{});
+    defer allocator.free(dynamic_value);
+
+    try stmt.reset();
+    try stmt.bindInt(1, 2);
+    try stmt.bindText(2, dynamic_value);
+    try std.testing.expectEqual(turso.status.StatusCode.TURSO_DONE, try stmt.step());
+
+    var dynamic_result = try opened.connection.query("SELECT value FROM t WHERE id = 2");
+    defer dynamic_result.deinit();
+
+    try std.testing.expectEqual(@as(usize, 1), dynamic_result.rows.len);
+    try std.testing.expectEqualStrings("dynamic-payload", dynamic_result.rows[0].values[0].text);
 }
 
 test "execute batch and query collect owned rows" {

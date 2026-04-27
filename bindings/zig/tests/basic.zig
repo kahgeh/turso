@@ -10,11 +10,11 @@ test "open create insert query over memory" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT)");
     defer create_stmt.deinit();
-    try std.testing.expectEqual(@as(u64, 0), try create_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 0), try create_stmt.stmt.execute(.{}));
 
     var insert_stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO users(name) VALUES ('ada')");
     defer insert_stmt.deinit();
-    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute(.{}));
     try std.testing.expectEqual(@as(i64, 1), fixture.conn.lastInsertRowId());
 
     var query_stmt = try support.prepare(allocator, &fixture.conn, "SELECT id, name FROM users");
@@ -43,7 +43,7 @@ test "finalize partially consumed statement and keep connection usable" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE items(value INTEGER)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var insert_stmt = try support.prepare(
         allocator,

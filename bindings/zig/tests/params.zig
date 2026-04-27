@@ -14,7 +14,7 @@ test "positional and named parameters round-trip values" {
         "CREATE TABLE t(i INTEGER, r REAL, s TEXT, b BLOB, n INTEGER)",
     );
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var positional_stmt = try support.prepare(
         allocator,
@@ -29,7 +29,7 @@ test "positional and named parameters round-trip values" {
     try positional_stmt.stmt.bindText(3, "hello");
     try positional_stmt.stmt.bindBlob(4, &.{ 0xde, 0xad, 0xbe, 0xef });
     try positional_stmt.stmt.bindNull(5);
-    try std.testing.expectEqual(@as(u64, 1), try positional_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try positional_stmt.stmt.execute(.{}));
 
     var named_stmt = try support.prepare(
         allocator,
@@ -64,7 +64,7 @@ test "positional and named parameters round-trip values" {
     try named_stmt.stmt.bindText(pos_s, "world");
     try named_stmt.stmt.bindBlob(pos_b, &.{});
     try named_stmt.stmt.bindNull(pos_n);
-    try std.testing.expectEqual(@as(u64, 1), try named_stmt.stmt.execute());
+    try std.testing.expectEqual(@as(u64, 1), try named_stmt.stmt.execute(.{}));
 
     var query_stmt = try support.prepare(
         allocator,

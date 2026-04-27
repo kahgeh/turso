@@ -10,7 +10,7 @@ test "closed connections and deinitialized statements report misuse" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INTEGER, b INTEGER, c INTEGER)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a, b, c) VALUES (?1, ?2, ?3)");
     defer stmt.deinit();
@@ -19,7 +19,7 @@ test "closed connections and deinitialized statements report misuse" {
     try std.testing.expectError(error.Misuse, stmt.stmt.bindInt(4, 1));
 
     stmt.stmt.deinit();
-    try std.testing.expectError(error.Misuse, stmt.stmt.execute());
+    try std.testing.expectError(error.Misuse, stmt.stmt.execute(.{}));
     try std.testing.expectError(error.Misuse, stmt.stmt.runIO());
     try std.testing.expectError(error.Misuse, stmt.stmt.reset());
     try std.testing.expectError(error.Misuse, stmt.stmt.finalize());
@@ -61,14 +61,14 @@ test "finalized statements remain invalid for further execution" {
 
     var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INTEGER)");
     defer create_stmt.deinit();
-    _ = try create_stmt.stmt.execute();
+    _ = try create_stmt.stmt.execute(.{});
 
     var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES (1)");
     defer stmt.deinit();
 
-    _ = try stmt.stmt.execute();
+    _ = try stmt.stmt.execute(.{});
     try stmt.finalize();
-    try std.testing.expectError(error.Misuse, stmt.stmt.execute());
+    try std.testing.expectError(error.Misuse, stmt.stmt.execute(.{}));
 }
 
 test "engine diagnostics expose C error messages" {

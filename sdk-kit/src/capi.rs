@@ -1,6 +1,6 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
 use turso_core::{types::AsValueRef, types::Text, IOResult};
 use turso_sdk_kit_macros::signature;
@@ -563,6 +563,48 @@ pub extern "C" fn turso_statement_bind_positional_text(
     match statement.bind_positional(
         position,
         turso_core::Value::Text(Text::new(text.to_string())),
+    ) {
+        Ok(()) => c::turso_status_code_t::TURSO_OK,
+        Err(err) => unsafe { err.to_capi(std::ptr::null_mut()) },
+    }
+}
+
+#[no_mangle]
+#[signature(c)]
+pub extern "C" fn turso_statement_bind_positional_text_static(
+    statement: *const c::turso_statement_t,
+    position: usize,
+    ptr: *const std::ffi::c_char,
+    len: usize,
+) -> c::turso_status_code_t {
+    let statement = match unsafe { TursoStatement::ref_from_capi(statement) } {
+        Ok(statement) => statement,
+        Err(err) => return unsafe { err.to_capi(std::ptr::null_mut()) },
+    };
+    let bytes: &'static [u8] = if len == 0 {
+        &[]
+    } else if ptr.is_null() {
+        return unsafe {
+            rsapi::TursoError::Misuse("expected static string slice, got null pointer".to_string())
+                .to_capi(std::ptr::null_mut())
+        };
+    } else {
+        unsafe { std::slice::from_raw_parts(ptr as *const u8, len) }
+    };
+    let text = match std::str::from_utf8(bytes) {
+        Ok(text) => text,
+        Err(err) => {
+            return unsafe {
+                rsapi::TursoError::Misuse(format!(
+                    "expected static string slice representing utf-8 value: {err}"
+                ))
+                .to_capi(std::ptr::null_mut())
+            }
+        }
+    };
+    match statement.bind_positional(
+        position,
+        turso_core::Value::Text(Text::new(Cow::Borrowed(text))),
     ) {
         Ok(()) => c::turso_status_code_t::TURSO_OK,
         Err(err) => unsafe { err.to_capi(std::ptr::null_mut()) },

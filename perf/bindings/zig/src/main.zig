@@ -5,7 +5,8 @@ const Workload = enum {
     open_database,
     open_close,
     prepare_step,
-    insert_txn,
+    insert_txn_execute,
+    insert_txn_step,
     point_select,
     scan_borrowed,
     scan_owned,
@@ -15,7 +16,9 @@ const Workload = enum {
         if (std.mem.eql(u8, value, "open_database")) return .open_database;
         if (std.mem.eql(u8, value, "open_close")) return .open_close;
         if (std.mem.eql(u8, value, "prepare_step")) return .prepare_step;
-        if (std.mem.eql(u8, value, "insert_txn")) return .insert_txn;
+        if (std.mem.eql(u8, value, "insert_txn")) return .insert_txn_execute;
+        if (std.mem.eql(u8, value, "insert_txn_execute")) return .insert_txn_execute;
+        if (std.mem.eql(u8, value, "insert_txn_step")) return .insert_txn_step;
         if (std.mem.eql(u8, value, "point_select")) return .point_select;
         if (std.mem.eql(u8, value, "scan_borrowed")) return .scan_borrowed;
         if (std.mem.eql(u8, value, "scan_owned")) return .scan_owned;
@@ -28,7 +31,8 @@ const Workload = enum {
             .open_database => "open_database",
             .open_close => "open_close",
             .prepare_step => "prepare_step",
-            .insert_txn => "insert_txn",
+            .insert_txn_execute => "insert_txn_execute",
+            .insert_txn_step => "insert_txn_step",
             .point_select => "point_select",
             .scan_borrowed => "scan_borrowed",
             .scan_owned => "scan_owned",
@@ -86,7 +90,8 @@ pub fn main(init: std.process.Init) !void {
         .open_database => try openDatabase(allocator, init.io, args.rows, args.iters),
         .open_close => try openClose(allocator, init.io, args.rows, args.iters),
         .prepare_step => try prepareStep(allocator, init.io, args.rows, args.iters),
-        .insert_txn => try insertTxn(allocator, init.io, args.rows, args.iters),
+        .insert_txn_execute => try insertTxnExecute(allocator, init.io, args.rows, args.iters),
+        .insert_txn_step => try insertTxnStep(allocator, init.io, args.rows, args.iters),
         .point_select => try pointSelect(allocator, init.io, args.rows, args.iters),
         .scan_borrowed => try scanBorrowed(allocator, init.io, args.rows, args.iters),
         .scan_owned => try scanOwned(allocator, init.io, args.rows, args.iters),
@@ -97,7 +102,7 @@ pub fn main(init: std.process.Init) !void {
 
 fn printHelp() void {
     std.debug.print(
-        "usage: binding-bench-zig [--workload open_database|open_close|prepare_step|insert_txn|point_select|scan_borrowed|scan_owned|query_collect] [--rows N] [--iters N]\n",
+        "usage: binding-bench-zig [--workload open_database|open_close|prepare_step|insert_txn_execute|insert_txn_step|point_select|scan_borrowed|scan_owned|query_collect] [--rows N] [--iters N]\n",
         .{},
     );
 }
@@ -178,7 +183,7 @@ fn prepareStep(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usi
     return .{ .elapsed_ms = elapsedMs(io, start), .ops = reps };
 }
 
-fn insertTxn(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+fn insertTxnExecute(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
     var db = try turso.Builder.newLocal(allocator, ":memory:").build();
     defer db.deinit();
     var conn = try db.connect();
@@ -190,7 +195,34 @@ fn insertTxn(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize
     for (0..iters) |iter| {
         _ = try conn.execute("BEGIN");
         var stmt = try conn.prepareSingle("INSERT INTO t(id, value) VALUES (?1, ?2)");
-        defer {
+        errdefer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+        }
+        for (0..rows) |row| {
+            _ = try stmt.execute(.{ @as(i64, @intCast(iter * rows + row)), "payload" });
+            inserted += 1;
+        }
+        try stmt.finalize();
+        stmt.deinit();
+        _ = try conn.execute("COMMIT");
+    }
+    return .{ .elapsed_ms = elapsedMs(io, start), .ops = inserted };
+}
+
+fn insertTxnStep(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+    var db = try turso.Builder.newLocal(allocator, ":memory:").build();
+    defer db.deinit();
+    var conn = try db.connect();
+    defer conn.deinit();
+    _ = try conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)");
+
+    var inserted: usize = 0;
+    const start = nowNs(io);
+    for (0..iters) |iter| {
+        _ = try conn.execute("BEGIN");
+        var stmt = try conn.prepareSingle("INSERT INTO t(id, value) VALUES (?1, ?2)");
+        errdefer {
             stmt.finalize() catch {};
             stmt.deinit();
         }
@@ -198,9 +230,11 @@ fn insertTxn(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize
             try stmt.reset();
             try stmt.bindInt(1, @intCast(iter * rows + row));
             try stmt.bindText(2, "payload");
-            _ = try stmt.execute();
+            if (try stmt.step() != .TURSO_DONE) return error.UnexpectedStatus;
             inserted += 1;
         }
+        try stmt.finalize();
+        stmt.deinit();
         _ = try conn.execute("COMMIT");
     }
     return .{ .elapsed_ms = elapsedMs(io, start), .ops = inserted };
@@ -324,7 +358,7 @@ fn loadRows(conn: *turso.Connection, rows: usize) !void {
         try stmt.reset();
         try stmt.bindInt(1, @intCast(row));
         try stmt.bindText(2, "payload");
-        _ = try stmt.execute();
+        if (try stmt.step() != .TURSO_DONE) return error.UnexpectedStatus;
     }
     _ = try conn.execute("COMMIT");
 }
