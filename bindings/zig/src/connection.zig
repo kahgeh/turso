@@ -84,31 +84,38 @@ pub const Connection = struct {
     allocator: std.mem.Allocator,
 
     /// Set busy timeout in milliseconds for the connection.
-    pub fn setBusyTimeout(self: *Connection, timeout_ms: i64) void {
-        if (self.ptr) |p| {
-            c.turso_connection_set_busy_timeout_ms(p, timeout_ms);
-        }
+    pub fn setBusyTimeout(self: *Connection, timeout_ms: i64) err.TursoError!void {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        c.turso_connection_set_busy_timeout_ms(self.ptr.?, timeout_ms);
+    }
+
+    /// Checked autocommit accessor. Invalid connection handles return `error.Misuse`.
+    pub fn getAutocommitChecked(self: *Connection) err.TursoError!bool {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        return c.turso_connection_get_autocommit(self.ptr.?);
     }
 
     /// Get autocommit state of the connection.
+    /// Convenience wrapper: invalid handles return false. Use `getAutocommitChecked` when misuse must be reported.
     pub fn getAutocommit(self: *Connection) bool {
-        if (self.ptr) |p| {
-            return c.turso_connection_get_autocommit(p);
-        }
-        return false;
+        return self.getAutocommitChecked() catch false;
+    }
+
+    /// Checked last-insert-rowid accessor. Invalid connection handles return `error.Misuse`.
+    pub fn lastInsertRowIdChecked(self: *Connection) err.TursoError!i64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        return c.turso_connection_last_insert_rowid(self.ptr.?);
     }
 
     /// Get last insert rowid for the connection, or 0 if no inserts happened.
+    /// Convenience wrapper: invalid handles return 0. Use `lastInsertRowIdChecked` when misuse must be reported.
     pub fn lastInsertRowId(self: *Connection) i64 {
-        if (self.ptr) |p| {
-            return c.turso_connection_last_insert_rowid(p);
-        }
-        return 0;
+        return self.lastInsertRowIdChecked() catch 0;
     }
 
     /// Close the connection for further operations. Returns TursoError on failure.
     pub fn close(self: *Connection) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_connection_close(self.ptr.?, &err_ptr);
         if (status_code != c.TURSO_OK) {
@@ -205,7 +212,7 @@ pub const Connection = struct {
             self.allocator.destroy(stmt);
         }
 
-        const raw_column_count = stmt.columnCount();
+        const raw_column_count = try stmt.columnCountChecked();
         if (raw_column_count < 0) {
             return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         }

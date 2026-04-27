@@ -60,12 +60,12 @@ test "busy timeout can be changed at runtime for later writes" {
     defer begin_stmt.deinit();
     _ = try begin_stmt.stmt.execute();
 
-    conn2.setBusyTimeout(0);
+    try conn2.setBusyTimeout(0);
     var first_update = try support.prepare(allocator, conn2, "UPDATE t SET value = value + 1 WHERE id = 1");
     defer first_update.deinit();
     try std.testing.expectError(error.Busy, first_update.stmt.execute());
 
-    conn2.setBusyTimeout(250);
+    try conn2.setBusyTimeout(250);
     var commit_stmt = try support.prepare(allocator, conn1, "COMMIT");
     defer commit_stmt.deinit();
     const releaser = try std.Thread.spawn(.{}, releaseWriteLock, .{commit_stmt.stmt});

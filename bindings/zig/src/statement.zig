@@ -21,7 +21,7 @@ pub const Statement = struct {
 
     /// Execute one iteration of the underlying IO backend after TURSO_IO status. Returns TursoError on failure.
     pub fn runIO(self: *Statement) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_run_io(self.ptr.?, &err_ptr);
         if (status_code != c.TURSO_OK) {
@@ -31,7 +31,7 @@ pub const Statement = struct {
 
     /// Reset a statement to prepare it for re-execution. Returns TursoError on failure.
     pub fn reset(self: *Statement) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_reset(self.ptr.?, &err_ptr);
         if (status_code != c.TURSO_OK) {
@@ -41,7 +41,7 @@ pub const Statement = struct {
 
     /// Finalize a statement to complete execution and cleanup. Returns TursoError on failure.
     pub fn finalize(self: *Statement) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var err_ptr: [*c]const u8 = null;
         const status_code = c.turso_statement_finalize(self.ptr.?, &err_ptr);
         return switch (@as(status.StatusCode, @enumFromInt(status_code))) {
@@ -52,7 +52,7 @@ pub const Statement = struct {
 
     /// Bind a NULL value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindNull(self: *Statement, position: usize) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const status_code = c.turso_statement_bind_positional_null(self.ptr.?, position);
         if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
@@ -61,7 +61,7 @@ pub const Statement = struct {
 
     /// Bind an INTEGER value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindInt(self: *Statement, position: usize, value: i64) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const status_code = c.turso_statement_bind_positional_int(self.ptr.?, position, value);
         if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
@@ -70,7 +70,7 @@ pub const Statement = struct {
 
     /// Bind a DOUBLE value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindDouble(self: *Statement, position: usize, value: f64) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const status_code = c.turso_statement_bind_positional_double(self.ptr.?, position, value);
         if (status_code != c.TURSO_OK) {
             return err.mapStatus(status_code, null, self.allocator);
@@ -79,7 +79,7 @@ pub const Statement = struct {
 
     /// Bind a TEXT value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindText(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var ptr: [*]const u8 = "";
         if (value.len > 0) {
             ptr = value.ptr;
@@ -92,7 +92,7 @@ pub const Statement = struct {
 
     /// Bind a BLOB value to a positional parameter (1-indexed). Returns TursoError on failure.
     pub fn bindBlob(self: *Statement, position: usize, value: []const u8) err.TursoError!void {
-        if (self.ptr == null) return;
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         var ptr: [*]const u8 = "";
         if (value.len > 0) {
             ptr = value.ptr;
@@ -103,42 +103,60 @@ pub const Statement = struct {
         }
     }
 
-    /// Get the value kind at the given column index for the current row.
-    pub fn rowValueKind(self: *Statement, index: usize) value_mod.ValueKind {
-        if (self.ptr == null) return .unknown;
+    /// Checked value kind accessor. Invalid statement handles return `error.Misuse`.
+    pub fn rowValueKindChecked(self: *Statement, index: usize) err.TursoError!value_mod.ValueKind {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const kind = c.turso_statement_row_value_kind(self.ptr.?, index);
         return value_mod.ValueKind.fromC(@enumFromInt(kind));
     }
 
-    /// Get an INTEGER value at the given column index. Returns 0 for non-integer kinds.
-    pub fn rowValueInt(self: *Statement, index: usize) i64 {
-        if (self.ptr == null) return 0;
+    /// Get the value kind at the given column index for the current row.
+    /// Convenience wrapper: invalid handles return `.unknown`. Use `rowValueKindChecked` when misuse must be reported.
+    pub fn rowValueKind(self: *Statement, index: usize) value_mod.ValueKind {
+        return self.rowValueKindChecked(index) catch .unknown;
+    }
+
+    /// Checked INTEGER value accessor. Invalid statement handles return `error.Misuse`.
+    pub fn rowValueIntChecked(self: *Statement, index: usize) err.TursoError!i64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return c.turso_statement_row_value_int(self.ptr.?, index);
     }
 
-    /// Get a REAL value at the given column index. Returns 0 for non-real kinds.
-    pub fn rowValueDouble(self: *Statement, index: usize) f64 {
-        if (self.ptr == null) return 0;
+    /// Get an INTEGER value at the given column index. Returns 0 for non-integer kinds.
+    /// Convenience wrapper: invalid handles return 0. Use `rowValueIntChecked` when misuse must be reported.
+    pub fn rowValueInt(self: *Statement, index: usize) i64 {
+        return self.rowValueIntChecked(index) catch 0;
+    }
+
+    /// Checked REAL value accessor. Invalid statement handles return `error.Misuse`.
+    pub fn rowValueDoubleChecked(self: *Statement, index: usize) err.TursoError!f64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return c.turso_statement_row_value_double(self.ptr.?, index);
+    }
+
+    /// Get a REAL value at the given column index. Returns 0 for non-real kinds.
+    /// Convenience wrapper: invalid handles return 0. Use `rowValueDoubleChecked` when misuse must be reported.
+    pub fn rowValueDouble(self: *Statement, index: usize) f64 {
+        return self.rowValueDoubleChecked(index) catch 0;
     }
 
     /// Get a TEXT value at the given column index as an owned copy. Returns empty string for non-text kinds.
     pub fn rowValueText(self: *Statement, index: usize) ![]u8 {
-        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return value_mod.readText(self.ptr.?, index, self.allocator);
     }
 
     /// Get a BLOB value at the given column index as an owned copy. Returns empty slice for non-blob kinds.
     pub fn rowValueBlob(self: *Statement, index: usize) ![]u8 {
-        if (self.ptr == null) return try self.allocator.dupe(u8, "");
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return value_mod.readBlob(self.ptr.?, index, self.allocator);
     }
 
     /// Get the value at the given column index as an owned Zig value.
     pub fn rowValue(self: *Statement, index: usize) !value_mod.OwnedValue {
-        return switch (self.rowValueKind(index)) {
-            .integer => .{ .integer = self.rowValueInt(index) },
-            .real => .{ .real = self.rowValueDouble(index) },
+        return switch (try self.rowValueKindChecked(index)) {
+            .integer => .{ .integer = try self.rowValueIntChecked(index) },
+            .real => .{ .real = try self.rowValueDoubleChecked(index) },
             .text => .{ .text = try self.rowValueText(index) },
             .blob => .{ .blob = try self.rowValueBlob(index) },
             .null => .{ .null = {} },
@@ -146,15 +164,21 @@ pub const Statement = struct {
         };
     }
 
-    /// Get the column count for the prepared statement.
-    pub fn columnCount(self: *Statement) i64 {
-        if (self.ptr == null) return 0;
+    /// Checked column count accessor. Invalid statement handles return `error.Misuse`.
+    pub fn columnCountChecked(self: *Statement) err.TursoError!i64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return c.turso_statement_column_count(self.ptr.?);
+    }
+
+    /// Get the column count for the prepared statement.
+    /// Convenience wrapper: invalid handles return 0. Use `columnCountChecked` when misuse must be reported.
+    pub fn columnCount(self: *Statement) i64 {
+        return self.columnCountChecked() catch 0;
     }
 
     /// Get the column name at the given index. The returned string is an owned copy allocated with self.allocator; the C-allocated Turso string is freed via turso_str_deinit.
     pub fn columnName(self: *Statement, index: usize) ![]u8 {
-        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const ptr = c.turso_statement_column_name(self.ptr.?, index);
         defer if (ptr) |p| c.turso_str_deinit(p);
         if (ptr) |p| return try self.allocator.dupe(u8, std.mem.span(p));
@@ -163,7 +187,7 @@ pub const Statement = struct {
 
     /// Get the declared column type at the given index (e.g. "INTEGER", "TEXT"). Returns empty string for non-available types. The C-allocated Turso string is freed via turso_str_deinit.
     pub fn columnDecltype(self: *Statement, index: usize) ![]u8 {
-        if (self.ptr == null) return self.allocator.dupe(u8, "");
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         const ptr = c.turso_statement_column_decltype(self.ptr.?, index);
         defer if (ptr) |p| c.turso_str_deinit(p);
         if (ptr) |p| return try self.allocator.dupe(u8, std.mem.span(p));
@@ -178,10 +202,16 @@ pub const Statement = struct {
         return c.turso_statement_named_position(self.ptr.?, c_name);
     }
 
-    /// Get the total number of parameters for the prepared statement. Returns -1 if the pointer is invalid.
-    pub fn parametersCount(self: *Statement) i64 {
-        if (self.ptr == null) return -1;
+    /// Checked parameter count accessor. Invalid statement handles return `error.Misuse`.
+    pub fn parametersCountChecked(self: *Statement) err.TursoError!i64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
         return c.turso_statement_parameters_count(self.ptr.?);
+    }
+
+    /// Get the total number of parameters for the prepared statement. Returns -1 if the pointer is invalid.
+    /// Convenience wrapper: invalid handles return -1. Use `parametersCountChecked` when misuse must be reported.
+    pub fn parametersCount(self: *Statement) i64 {
+        return self.parametersCountChecked() catch -1;
     }
 
     /// Execute a single statement to completion, handling TURSO_IO by calling runIO and retrying. Returns row changes count or TursoError.
@@ -232,11 +262,14 @@ pub const Statement = struct {
     }
 
     /// Get the number of row modifications made by the most recent executed statement.
+    pub fn nChangeChecked(self: *Statement) err.TursoError!i64 {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        return c.turso_statement_n_change(self.ptr.?);
+    }
+
+    /// Convenience wrapper: invalid handles return 0. Use `nChangeChecked` when misuse must be reported.
     pub fn nChange(self: *Statement) i64 {
-        if (self.ptr) |p| {
-            return c.turso_statement_n_change(p);
-        }
-        return 0;
+        return self.nChangeChecked() catch 0;
     }
 
     /// Deinitialize and free the statement handle.

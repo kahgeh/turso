@@ -19,9 +19,34 @@ test "closed connections and deinitialized statements report misuse" {
 
     stmt.stmt.deinit();
     try std.testing.expectError(error.Misuse, stmt.stmt.execute());
+    try std.testing.expectError(error.Misuse, stmt.stmt.runIO());
+    try std.testing.expectError(error.Misuse, stmt.stmt.reset());
+    try std.testing.expectError(error.Misuse, stmt.stmt.finalize());
+    try std.testing.expectError(error.Misuse, stmt.stmt.bindNull(1));
+    try std.testing.expectError(error.Misuse, stmt.stmt.bindInt(1, 1));
+    try std.testing.expectError(error.Misuse, stmt.stmt.bindDouble(1, 1.0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.bindText(1, "x"));
+    try std.testing.expectError(error.Misuse, stmt.stmt.bindBlob(1, &.{1}));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValueKindChecked(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValueIntChecked(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValueDoubleChecked(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValueText(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValueBlob(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.rowValue(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.columnCountChecked());
+    try std.testing.expectError(error.Misuse, stmt.stmt.columnName(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.columnDecltype(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.parametersCountChecked());
+    try std.testing.expectError(error.Misuse, stmt.stmt.nChangeChecked());
+    stmt.finalized = true;
 
     fixture.conn.deinit();
+    try std.testing.expectError(error.Misuse, fixture.conn.close());
     try std.testing.expectError(error.Misuse, fixture.conn.prepareSingle("SELECT 1"));
+    try std.testing.expectError(error.Misuse, fixture.conn.setBusyTimeout(1));
+    try std.testing.expectError(error.Misuse, fixture.conn.getAutocommitChecked());
+    try std.testing.expectError(error.Misuse, fixture.conn.lastInsertRowIdChecked());
+    fixture.closed = true;
 
     // The fixture cleanup path tolerates already-deinitialized handles.
 }
