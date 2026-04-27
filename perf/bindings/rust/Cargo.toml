@@ -1,0 +1,13 @@
+[package]
+name = "binding-bench-rust"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "binding-bench-rust"
+path = "src/main.rs"
+
+[dependencies]
+turso = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
