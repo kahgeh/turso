@@ -210,6 +210,23 @@ pub const Connection = struct {
 
     /// Prepare a single SQL statement and return a value handle.
     pub fn prepareSingleValue(self: *Connection, sql: []const u8) err.TursoError!statement_mod.Statement {
+        return self.prepareSingleValueWithDiagnostic(sql, null);
+    }
+
+    /// Prepare a single SQL statement and capture engine diagnostics on failure.
+    pub fn prepareSingleValueDiagnostic(
+        self: *Connection,
+        sql: []const u8,
+        diagnostic: *err.Diagnostic,
+    ) err.TursoError!statement_mod.Statement {
+        return self.prepareSingleValueWithDiagnostic(sql, diagnostic);
+    }
+
+    fn prepareSingleValueWithDiagnostic(
+        self: *Connection,
+        sql: []const u8,
+        diagnostic: ?*err.Diagnostic,
+    ) err.TursoError!statement_mod.Statement {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -226,7 +243,7 @@ pub const Connection = struct {
         const status_code = c.turso_connection_prepare_single(self.ptr.?, c_sql, &stmt, &err_ptr);
 
         if (status_code != c.TURSO_OK) {
-            return err.mapStatus(status_code, err_ptr, self.allocator);
+            return err.mapStatusWithDiagnostic(status_code, err_ptr, self.allocator, diagnostic);
         }
 
         return statement_mod.Statement{
@@ -259,6 +276,20 @@ pub const Connection = struct {
             stmt.deinit();
         }
         return stmt.execute();
+    }
+
+    /// Prepare and execute SQL while capturing engine diagnostics on failure.
+    pub fn executeDiagnostic(
+        self: *Connection,
+        sql: []const u8,
+        diagnostic: *err.Diagnostic,
+    ) err.TursoError!u64 {
+        var stmt = try self.prepareSingleValueDiagnostic(sql, diagnostic);
+        defer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+        }
+        return stmt.executeWithDiagnostic(diagnostic);
     }
 
     /// Execute every statement in a SQL batch and return the total row-change count.

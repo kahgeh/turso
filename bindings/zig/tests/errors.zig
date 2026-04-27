@@ -1,4 +1,5 @@
 const std = @import("std");
+const turso = @import("turso");
 const support = @import("support.zig");
 
 test "closed connections and deinitialized statements report misuse" {
@@ -68,4 +69,18 @@ test "finalized statements remain invalid for further execution" {
     _ = try stmt.stmt.execute();
     try stmt.finalize();
     try std.testing.expectError(error.Misuse, stmt.stmt.execute());
+}
+
+test "engine diagnostics expose C error messages" {
+    const allocator = std.testing.allocator;
+
+    var fixture = try support.openInMemory(allocator);
+    defer fixture.deinit();
+
+    var diagnostic = turso.err.Diagnostic.init(allocator);
+    defer diagnostic.deinit();
+
+    try std.testing.expectError(error.Generic, fixture.conn.executeDiagnostic("SELEC invalid", &diagnostic));
+    try std.testing.expect(diagnostic.message != null);
+    try std.testing.expect(diagnostic.message.?.len > 0);
 }

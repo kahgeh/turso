@@ -11,7 +11,12 @@ pub const Statement = struct {
 
     /// Execute a single statement to completion. Returns row changes count or TursoError.
     pub fn execute(self: *Statement) err.TursoError!u64 {
-        return self.executeSync();
+        return self.executeSync(null);
+    }
+
+    /// Execute a single statement to completion and capture engine diagnostics on failure.
+    pub fn executeWithDiagnostic(self: *Statement, diagnostic: *err.Diagnostic) err.TursoError!u64 {
+        return self.executeSync(diagnostic);
     }
 
     /// Step statement execution once. Returns TURSO_ROW if a row is available, TURSO_DONE when finished, or TursoError.
@@ -223,7 +228,7 @@ pub const Statement = struct {
     }
 
     /// Execute a single statement to completion, handling TURSO_IO by calling runIO and retrying. Returns row changes count or TursoError.
-    fn executeSync(self: *Statement) err.TursoError!u64 {
+    fn executeSync(self: *Statement, diagnostic: ?*err.Diagnostic) err.TursoError!u64 {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -241,7 +246,7 @@ pub const Statement = struct {
                     try self.runIO();
                     continue;
                 },
-                else => err.mapStatus(status_code, err_ptr, self.allocator),
+                else => err.mapStatusWithDiagnostic(status_code, err_ptr, self.allocator, diagnostic),
             };
         }
     }
