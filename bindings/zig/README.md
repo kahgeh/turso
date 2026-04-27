@@ -136,6 +136,7 @@ pub fn main() !void {
 - Text and blob row values returned by the wrapper are owned copies in Zig memory.
 - `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
+- `Statement.namedPosition()` returns `!?usize`; null means the named parameter is absent.
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
 - `prepareFirst()` can return a null statement when the remaining SQL contains only whitespace or comments.
 

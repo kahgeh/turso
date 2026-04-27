@@ -36,6 +36,7 @@ test "closed connections and deinitialized statements report misuse" {
     try std.testing.expectError(error.Misuse, stmt.stmt.columnCountChecked());
     try std.testing.expectError(error.Misuse, stmt.stmt.columnName(0));
     try std.testing.expectError(error.Misuse, stmt.stmt.columnDecltype(0));
+    try std.testing.expectError(error.Misuse, stmt.stmt.namedPosition(":i"));
     try std.testing.expectError(error.Misuse, stmt.stmt.parametersCountChecked());
     try std.testing.expectError(error.Misuse, stmt.stmt.nChangeChecked());
     stmt.finalized = true;

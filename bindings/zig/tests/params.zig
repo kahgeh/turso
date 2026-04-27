@@ -39,24 +39,32 @@ test "positional and named parameters round-trip values" {
     defer named_stmt.deinit();
 
     try std.testing.expectEqual(@as(i64, 5), named_stmt.stmt.parametersCount());
-    const pos_i = named_stmt.stmt.namedPosition(":i");
-    const pos_r = named_stmt.stmt.namedPosition(":r");
-    const pos_s = named_stmt.stmt.namedPosition(":s");
-    const pos_b = named_stmt.stmt.namedPosition(":b");
-    const pos_n = named_stmt.stmt.namedPosition(":n");
+    const pos_i = (try named_stmt.stmt.namedPosition(":i")).?;
+    const pos_r = (try named_stmt.stmt.namedPosition(":r")).?;
+    const pos_s = (try named_stmt.stmt.namedPosition(":s")).?;
+    const pos_b = (try named_stmt.stmt.namedPosition(":b")).?;
+    const pos_n = (try named_stmt.stmt.namedPosition(":n")).?;
 
-    try std.testing.expectEqual(@as(i64, 1), pos_i);
-    try std.testing.expectEqual(@as(i64, 2), pos_r);
-    try std.testing.expectEqual(@as(i64, 3), pos_s);
-    try std.testing.expectEqual(@as(i64, 4), pos_b);
-    try std.testing.expectEqual(@as(i64, 5), pos_n);
-    try std.testing.expectEqual(@as(i64, -1), named_stmt.stmt.namedPosition(":missing"));
+    try std.testing.expectEqual(@as(usize, 1), pos_i);
+    try std.testing.expectEqual(@as(usize, 2), pos_r);
+    try std.testing.expectEqual(@as(usize, 3), pos_s);
+    try std.testing.expectEqual(@as(usize, 4), pos_b);
+    try std.testing.expectEqual(@as(usize, 5), pos_n);
+    try std.testing.expectEqual(null, try named_stmt.stmt.namedPosition(":missing"));
+    try std.testing.expectEqual(@as(i64, -1), named_stmt.stmt.namedPositionOrMinusOne(":missing"));
 
-    try named_stmt.stmt.bindInt(@intCast(pos_i), 7);
-    try named_stmt.stmt.bindDouble(@intCast(pos_r), -1.5);
-    try named_stmt.stmt.bindText(@intCast(pos_s), "world");
-    try named_stmt.stmt.bindBlob(@intCast(pos_b), &.{});
-    try named_stmt.stmt.bindNull(@intCast(pos_n));
+    var failing_allocator = std.testing.FailingAllocator.init(allocator, .{ .fail_index = 0 });
+    var oom_lookup_stmt = turso.stmt.Statement{
+        .ptr = named_stmt.stmt.ptr,
+        .allocator = failing_allocator.allocator(),
+    };
+    try std.testing.expectError(error.OutOfMemory, oom_lookup_stmt.namedPosition(":i"));
+
+    try named_stmt.stmt.bindInt(pos_i, 7);
+    try named_stmt.stmt.bindDouble(pos_r, -1.5);
+    try named_stmt.stmt.bindText(pos_s, "world");
+    try named_stmt.stmt.bindBlob(pos_b, &.{});
+    try named_stmt.stmt.bindNull(pos_n);
     try std.testing.expectEqual(@as(u64, 1), try named_stmt.stmt.execute());
 
     var query_stmt = try support.prepare(

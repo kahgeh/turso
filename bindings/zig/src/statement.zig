@@ -194,12 +194,20 @@ pub const Statement = struct {
         return self.allocator.dupe(u8, "");
     }
 
-    /// Resolve a named parameter to its 1-indexed positional value. Returns -1 if the name is not found.
-    pub fn namedPosition(self: *Statement, name: []const u8) i64 {
-        if (self.ptr == null) return -1;
-        const c_name = self.allocator.dupeZ(u8, name) catch return -1;
+    /// Resolve a named parameter to its 1-indexed positional value.
+    /// Returns null when the name is not present.
+    pub fn namedPosition(self: *Statement, name: []const u8) err.TursoError!?usize {
+        if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        const c_name = try self.allocator.dupeZ(u8, name);
         defer self.allocator.free(c_name);
-        return c.turso_statement_named_position(self.ptr.?, c_name);
+        const position = c.turso_statement_named_position(self.ptr.?, c_name);
+        if (position < 0) return null;
+        return @intCast(position);
+    }
+
+    /// Compatibility helper for callers that still need the old -1 sentinel contract.
+    pub fn namedPositionOrMinusOne(self: *Statement, name: []const u8) i64 {
+        return if (self.namedPosition(name) catch null) |position| @intCast(position) else -1;
     }
 
     /// Checked parameter count accessor. Invalid statement handles return `error.Misuse`.
