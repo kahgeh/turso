@@ -15,7 +15,8 @@ usage: ./perf/bindings/run.sh [options]
 
 options:
   --bindings rust,zig       comma-separated binding list
-  --workload NAME           open_close, insert_txn, point_select, or scan
+  --workload NAME           open_database, open_close, prepare_step, insert_txn,
+                            point_select, scan_borrowed, scan_owned, or query_collect
   --rows N                  rows per iteration
   --iters N                 iteration count
   --profile NAME            Cargo profile and target/<profile> native archive dir

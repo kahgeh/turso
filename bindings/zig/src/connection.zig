@@ -132,11 +132,11 @@ pub const Transaction = struct {
     conn: *Connection,
     finished: bool = false,
 
-    pub fn execute(self: *Transaction, sql: []const u8) err.TursoError!u64 {
+    pub fn execute(self: *Transaction, sql: anytype) err.TursoError!u64 {
         return self.conn.execute(sql);
     }
 
-    pub fn query(self: *Transaction, sql: []const u8) err.TursoError!QueryResult {
+    pub fn query(self: *Transaction, sql: anytype) err.TursoError!QueryResult {
         return self.conn.query(sql);
     }
 
@@ -202,22 +202,56 @@ pub const Connection = struct {
     }
 
     /// Prepare a single SQL statement and return a value handle.
-    pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!statement_mod.Statement {
-        return self.prepareSingleInternal(sql, null);
+    pub fn prepareSingle(self: *Connection, sql: anytype) err.TursoError!statement_mod.Statement {
+        if (comptime isZeroTerminatedString(@TypeOf(sql))) {
+            const sql_z: [:0]const u8 = sql;
+            return self.prepareSingleInternalZ(sql_z, null);
+        }
+        const sql_slice: []const u8 = sql;
+        return self.prepareSingleInternal(sql_slice, null);
+    }
+
+    /// Prepare a zero-terminated SQL statement without allocating a temporary C string.
+    pub fn prepareSingleZ(self: *Connection, sql: [:0]const u8) err.TursoError!statement_mod.Statement {
+        return self.prepareSingleInternalZ(sql, null);
     }
 
     /// Prepare a single SQL statement and capture engine diagnostics on failure.
     pub fn prepareSingleWithDiagnostic(
         self: *Connection,
-        sql: []const u8,
+        sql: anytype,
         diagnostic: *err.Diagnostic,
     ) err.TursoError!statement_mod.Statement {
-        return self.prepareSingleInternal(sql, diagnostic);
+        if (comptime isZeroTerminatedString(@TypeOf(sql))) {
+            const sql_z: [:0]const u8 = sql;
+            return self.prepareSingleInternalZ(sql_z, diagnostic);
+        }
+        const sql_slice: []const u8 = sql;
+        return self.prepareSingleInternal(sql_slice, diagnostic);
+    }
+
+    /// Prepare a zero-terminated SQL statement and capture engine diagnostics on failure.
+    pub fn prepareSingleZWithDiagnostic(
+        self: *Connection,
+        sql: [:0]const u8,
+        diagnostic: *err.Diagnostic,
+    ) err.TursoError!statement_mod.Statement {
+        return self.prepareSingleInternalZ(sql, diagnostic);
     }
 
     fn prepareSingleInternal(
         self: *Connection,
         sql: []const u8,
+        diagnostic: ?*err.Diagnostic,
+    ) err.TursoError!statement_mod.Statement {
+        const c_sql = try self.allocator.dupeZ(u8, sql);
+        defer self.allocator.free(c_sql);
+        return self.prepareSingleInternalZ(c_sql, diagnostic);
+    }
+
+    fn prepareSingleInternalZ(
+        self: *Connection,
+        sql: [:0]const u8,
         diagnostic: ?*err.Diagnostic,
     ) err.TursoError!statement_mod.Statement {
         if (self.ptr == null) {
@@ -228,12 +262,9 @@ pub const Connection = struct {
             );
         }
 
-        const c_sql = try self.allocator.dupeZ(u8, sql);
-        defer self.allocator.free(c_sql);
-
         var stmt: ?*c.turso_statement_t = null;
         var err_ptr: [*c]const u8 = null;
-        const status_code = c.turso_connection_prepare_single(self.ptr.?, c_sql, &stmt, &err_ptr);
+        const status_code = c.turso_connection_prepare_single(self.ptr.?, sql, &stmt, &err_ptr);
 
         if (status_code != c.TURSO_OK) {
             return err.mapStatusWithDiagnostic(status_code, err_ptr, self.allocator, diagnostic);
@@ -247,8 +278,19 @@ pub const Connection = struct {
     }
 
     /// Prepare and execute a single SQL statement to completion.
-    pub fn execute(self: *Connection, sql: []const u8) err.TursoError!u64 {
+    pub fn execute(self: *Connection, sql: anytype) err.TursoError!u64 {
         var stmt = try self.prepareSingle(sql);
+        defer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+        }
+        return stmt.execute();
+    }
+
+    /// Prepare and execute a zero-terminated SQL statement without allocating
+    /// a temporary C string for the SQL text.
+    pub fn executeZ(self: *Connection, sql: [:0]const u8) err.TursoError!u64 {
+        var stmt = try self.prepareSingleZ(sql);
         defer {
             stmt.finalize() catch {};
             stmt.deinit();
@@ -259,7 +301,7 @@ pub const Connection = struct {
     /// Prepare and execute SQL while capturing engine diagnostics on failure.
     pub fn executeWithDiagnostic(
         self: *Connection,
-        sql: []const u8,
+        sql: anytype,
         diagnostic: *err.Diagnostic,
     ) err.TursoError!u64 {
         var stmt = try self.prepareSingleWithDiagnostic(sql, diagnostic);
@@ -302,7 +344,7 @@ pub const Connection = struct {
     }
 
     /// Prepare, run, and collect a query into owned Zig rows.
-    pub fn query(self: *Connection, sql: []const u8) err.TursoError!QueryResult {
+    pub fn query(self: *Connection, sql: anytype) err.TursoError!QueryResult {
         var stream = try self.rows(sql);
         defer stream.deinit();
 
@@ -366,7 +408,7 @@ pub const Connection = struct {
     /// Prepare a query for streaming row iteration.
     /// Borrowed text/blob slices from `RowView` stay valid until `Rows.next()`,
     /// `Statement.reset()`, `Statement.finalize()`, or `Rows.deinit()`.
-    pub fn rows(self: *Connection, sql: []const u8) err.TursoError!Rows {
+    pub fn rows(self: *Connection, sql: anytype) err.TursoError!Rows {
         var stmt = try self.prepareSingle(sql);
         errdefer {
             stmt.finalize() catch {};
@@ -435,3 +477,18 @@ pub const Connection = struct {
         self.ptr = null;
     }
 };
+
+fn isZeroTerminatedString(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .pointer => |ptr| switch (ptr.size) {
+            .slice, .many => ptr.child == u8 and ptr.sentinel() != null and ptr.sentinel().? == 0,
+            .one => switch (@typeInfo(ptr.child)) {
+                .array => |array| array.child == u8 and array.sentinel() != null and array.sentinel().? == 0,
+                else => false,
+            },
+            else => false,
+        },
+        .array => |array| array.child == u8 and array.sentinel() != null and array.sentinel().? == 0,
+        else => false,
+    };
+}

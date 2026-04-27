@@ -9,5 +9,7 @@ name = "binding-bench-rust"
 path = "src/main.rs"
 
 [dependencies]
+anyhow = { workspace = true }
 turso = { workspace = true }
+turso_sdk_kit = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

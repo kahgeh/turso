@@ -458,8 +458,10 @@ dependencies = [
 name = "binding-bench-rust"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "tokio",
  "turso",
+ "turso_sdk_kit",
 ]
 
 [[package]]

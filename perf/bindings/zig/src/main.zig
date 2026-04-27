@@ -2,25 +2,37 @@ const std = @import("std");
 const turso = @import("turso");
 
 const Workload = enum {
+    open_database,
     open_close,
+    prepare_step,
     insert_txn,
     point_select,
-    scan,
+    scan_borrowed,
+    scan_owned,
+    query_collect,
 
     fn parse(value: []const u8) !Workload {
+        if (std.mem.eql(u8, value, "open_database")) return .open_database;
         if (std.mem.eql(u8, value, "open_close")) return .open_close;
+        if (std.mem.eql(u8, value, "prepare_step")) return .prepare_step;
         if (std.mem.eql(u8, value, "insert_txn")) return .insert_txn;
         if (std.mem.eql(u8, value, "point_select")) return .point_select;
-        if (std.mem.eql(u8, value, "scan")) return .scan;
+        if (std.mem.eql(u8, value, "scan_borrowed")) return .scan_borrowed;
+        if (std.mem.eql(u8, value, "scan_owned")) return .scan_owned;
+        if (std.mem.eql(u8, value, "query_collect")) return .query_collect;
         return error.UnknownWorkload;
     }
 
     fn name(self: Workload) []const u8 {
         return switch (self) {
+            .open_database => "open_database",
             .open_close => "open_close",
+            .prepare_step => "prepare_step",
             .insert_txn => "insert_txn",
             .point_select => "point_select",
-            .scan => "scan",
+            .scan_borrowed => "scan_borrowed",
+            .scan_owned => "scan_owned",
+            .query_collect => "query_collect",
         };
     }
 };
@@ -71,17 +83,21 @@ pub fn main(init: std.process.Init) !void {
     };
 
     const result = switch (args.workload) {
+        .open_database => try openDatabase(allocator, init.io, args.rows, args.iters),
         .open_close => try openClose(allocator, init.io, args.rows, args.iters),
+        .prepare_step => try prepareStep(allocator, init.io, args.rows, args.iters),
         .insert_txn => try insertTxn(allocator, init.io, args.rows, args.iters),
         .point_select => try pointSelect(allocator, init.io, args.rows, args.iters),
-        .scan => try scan(allocator, init.io, args.rows, args.iters),
+        .scan_borrowed => try scanBorrowed(allocator, init.io, args.rows, args.iters),
+        .scan_owned => try scanOwned(allocator, init.io, args.rows, args.iters),
+        .query_collect => try queryCollect(allocator, init.io, args.rows, args.iters),
     };
     printResult("zig", args.workload, args.rows, args.iters, result.elapsed_ms, result.ops);
 }
 
 fn printHelp() void {
     std.debug.print(
-        "usage: binding-bench-zig [--workload open_close|insert_txn|point_select|scan] [--rows N] [--iters N]\n",
+        "usage: binding-bench-zig [--workload open_database|open_close|prepare_step|insert_txn|point_select|scan_borrowed|scan_owned|query_collect] [--rows N] [--iters N]\n",
         .{},
     );
 }
@@ -119,9 +135,45 @@ fn openClose(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize
     const start = nowNs(io);
     for (0..reps) |_| {
         var db = try turso.Builder.newLocal(allocator, ":memory:").build();
-        defer db.deinit();
         var conn = try db.connect();
-        defer conn.deinit();
+        conn.deinit();
+        db.deinit();
+    }
+    return .{ .elapsed_ms = elapsedMs(io, start), .ops = reps };
+}
+
+fn openDatabase(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+    const reps = @max(rows * iters, 1);
+    const start = nowNs(io);
+    for (0..reps) |_| {
+        var db = try turso.Builder.newLocal(allocator, ":memory:").build();
+        db.deinit();
+    }
+    return .{ .elapsed_ms = elapsedMs(io, start), .ops = reps };
+}
+
+fn prepareStep(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+    const reps = @max(rows * iters, 1);
+    var db = try turso.Builder.newLocal(allocator, ":memory:").build();
+    defer db.deinit();
+    var conn = try db.connect();
+    defer conn.deinit();
+
+    const start = nowNs(io);
+    for (0..reps) |_| {
+        var stmt = try conn.prepareSingle("SELECT 1");
+        if (try stmt.step() != .TURSO_ROW) {
+            stmt.finalize() catch {};
+            stmt.deinit();
+            return error.UnexpectedStatus;
+        }
+        if (try stmt.step() != .TURSO_DONE) {
+            stmt.finalize() catch {};
+            stmt.deinit();
+            return error.UnexpectedStatus;
+        }
+        stmt.finalize() catch {};
+        stmt.deinit();
     }
     return .{ .elapsed_ms = elapsedMs(io, start), .ops = reps };
 }
@@ -183,7 +235,7 @@ fn pointSelect(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usi
     return .{ .elapsed_ms = elapsedMs(io, start), .ops = found };
 }
 
-fn scan(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+fn scanBorrowed(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
     var db = try turso.Builder.newLocal(allocator, ":memory:").build();
     defer db.deinit();
     var conn = try db.connect();
@@ -194,12 +246,67 @@ fn scan(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !Be
     var checksum: i64 = 0;
     const start = nowNs(io);
     for (0..iters) |_| {
-        var stream = try conn.rows("SELECT id FROM t");
-        defer stream.deinit();
-        while (try stream.next()) |row| {
-            checksum +%= try row.int(0);
+        var stmt = try conn.prepareSingle("SELECT id FROM t");
+        while (try stmt.step() == .TURSO_ROW) {
+            checksum +%= try stmt.rowValueIntChecked(0);
             scanned += 1;
         }
+        stmt.finalize() catch {};
+        stmt.deinit();
+    }
+    std.mem.doNotOptimizeAway(checksum);
+    return .{ .elapsed_ms = elapsedMs(io, start), .ops = scanned };
+}
+
+fn scanOwned(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+    var db = try turso.Builder.newLocal(allocator, ":memory:").build();
+    defer db.deinit();
+    var conn = try db.connect();
+    defer conn.deinit();
+    try loadRows(&conn, rows);
+
+    var scanned: usize = 0;
+    var checksum: i64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var stmt = try conn.prepareSingle("SELECT id, value FROM t");
+        while (try stmt.step() == .TURSO_ROW) {
+            var id = try stmt.rowValue(0);
+            var value = try stmt.rowValue(1);
+            if (id == .integer) {
+                checksum +%= id.integer;
+                scanned += 1;
+            }
+            std.mem.doNotOptimizeAway(value);
+            id.deinit(allocator);
+            value.deinit(allocator);
+        }
+        stmt.finalize() catch {};
+        stmt.deinit();
+    }
+    std.mem.doNotOptimizeAway(checksum);
+    return .{ .elapsed_ms = elapsedMs(io, start), .ops = scanned };
+}
+
+fn queryCollect(allocator: std.mem.Allocator, io: std.Io, rows: usize, iters: usize) !BenchResult {
+    var db = try turso.Builder.newLocal(allocator, ":memory:").build();
+    defer db.deinit();
+    var conn = try db.connect();
+    defer conn.deinit();
+    try loadRows(&conn, rows);
+
+    var scanned: usize = 0;
+    var checksum: i64 = 0;
+    const start = nowNs(io);
+    for (0..iters) |_| {
+        var result = try conn.query("SELECT id, value FROM t");
+        for (result.rows) |row| {
+            if (row.values[0] == .integer) {
+                checksum +%= row.values[0].integer;
+                scanned += 1;
+            }
+        }
+        result.deinit();
     }
     std.mem.doNotOptimizeAway(checksum);
     return .{ .elapsed_ms = elapsedMs(io, start), .ops = scanned };

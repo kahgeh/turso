@@ -22,10 +22,14 @@ Implemented bindings:
 
 Implemented workloads:
 
+- `open_database`: build an in-memory database repeatedly.
 - `open_close`: build an in-memory database and connection repeatedly.
+- `prepare_step`: prepare `SELECT 1` and step it to completion.
 - `insert_txn`: insert `rows` rows inside one transaction.
 - `point_select`: load `rows` indexed rows, then perform `rows` indexed lookups.
-- `scan`: load `rows` rows, then scan and sum all row ids.
+- `scan_borrowed`: load `rows` rows, then scan ids through the thinnest available value path.
+- `scan_owned`: load `rows` rows, then scan and materialize owned row values.
+- `query_collect`: load `rows` rows, then use high-level query APIs and collect owned rows.
 
 Each driver prints one JSON object per run:
 

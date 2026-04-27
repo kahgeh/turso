@@ -15,6 +15,46 @@ test "builder opens database and connect convenience owns lifecycle" {
     try std.testing.expectEqual(@as(u64, 1), try opened.connection.execute("INSERT INTO t(value) VALUES ('builder')"));
 }
 
+test "default local builder and prepare use zero-terminated fast paths" {
+    const allocator = std.testing.allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    try std.testing.expectEqual(@as(u64, 0), try opened.connection.execute("CREATE TABLE t(value TEXT)"));
+    var stmt = try opened.connection.prepareSingle("INSERT INTO t(value) VALUES (?1)");
+    defer {
+        stmt.finalize() catch {};
+        stmt.deinit();
+    }
+    try stmt.bindText(1, "fast");
+    try std.testing.expectEqual(@as(u64, 1), try stmt.execute());
+
+    var query = try opened.connection.prepareSingle("SELECT value FROM t");
+    defer {
+        query.finalize() catch {};
+        query.deinit();
+    }
+    try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try query.step());
+    const value = try query.rowValueText(0);
+    defer allocator.free(value);
+    try std.testing.expectEqualStrings("fast", value);
+    try std.testing.expectEqual(turso.status.StatusCode.TURSO_DONE, try query.step());
+
+    const dynamic_sql = try std.fmt.allocPrint(allocator, "SELECT value FROM t", .{});
+    defer allocator.free(dynamic_sql);
+
+    var dynamic_query = try opened.connection.prepareSingle(dynamic_sql);
+    defer {
+        dynamic_query.finalize() catch {};
+        dynamic_query.deinit();
+    }
+    try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try dynamic_query.step());
+    const dynamic_value = try dynamic_query.rowValueText(0);
+    defer allocator.free(dynamic_value);
+    try std.testing.expectEqualStrings("fast", dynamic_value);
+}
+
 test "execute batch and query collect owned rows" {
     const allocator = std.testing.allocator;
 
