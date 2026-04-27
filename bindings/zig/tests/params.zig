@@ -10,7 +10,7 @@ test "positional and named parameters round-trip values" {
 
     var create_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "CREATE TABLE t(i INTEGER, r REAL, s TEXT, b BLOB, n INTEGER)",
     );
     defer create_stmt.deinit();
@@ -18,7 +18,7 @@ test "positional and named parameters round-trip values" {
 
     var positional_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "INSERT INTO t(i, r, s, b, n) VALUES (?1, ?2, ?3, ?4, ?5)",
     );
     defer positional_stmt.deinit();
@@ -33,7 +33,7 @@ test "positional and named parameters round-trip values" {
 
     var named_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "INSERT INTO t(i, r, s, b, n) VALUES (:i, :r, :s, :b, :n)",
     );
     defer named_stmt.deinit();
@@ -51,7 +51,6 @@ test "positional and named parameters round-trip values" {
     try std.testing.expectEqual(@as(usize, 4), pos_b);
     try std.testing.expectEqual(@as(usize, 5), pos_n);
     try std.testing.expectEqual(null, try named_stmt.stmt.namedPosition(":missing"));
-    try std.testing.expectEqual(@as(i64, -1), named_stmt.stmt.namedPositionOrMinusOne(":missing"));
 
     var failing_allocator = std.testing.FailingAllocator.init(allocator, .{ .fail_index = 0 });
     var oom_lookup_stmt = turso.stmt.Statement{
@@ -69,7 +68,7 @@ test "positional and named parameters round-trip values" {
 
     var query_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "SELECT i, r, s, b, n FROM t ORDER BY rowid",
     );
     defer query_stmt.deinit();

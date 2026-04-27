@@ -8,11 +8,11 @@ test "closed connections and deinitialized statements report misuse" {
     var fixture = try support.openInMemory(allocator);
     defer fixture.deinit();
 
-    var create_stmt = try support.prepare(allocator, fixture.conn, "CREATE TABLE t(a INTEGER, b INTEGER, c INTEGER)");
+    var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INTEGER, b INTEGER, c INTEGER)");
     defer create_stmt.deinit();
     _ = try create_stmt.stmt.execute();
 
-    var stmt = try support.prepare(allocator, fixture.conn, "INSERT INTO t(a, b, c) VALUES (?1, ?2, ?3)");
+    var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a, b, c) VALUES (?1, ?2, ?3)");
     defer stmt.deinit();
 
     try std.testing.expectEqual(@as(i64, 3), stmt.stmt.parametersCount());
@@ -59,11 +59,11 @@ test "finalized statements remain invalid for further execution" {
     var fixture = try support.openInMemory(allocator);
     defer fixture.deinit();
 
-    var create_stmt = try support.prepare(allocator, fixture.conn, "CREATE TABLE t(a INTEGER)");
+    var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE t(a INTEGER)");
     defer create_stmt.deinit();
     _ = try create_stmt.stmt.execute();
 
-    var stmt = try support.prepare(allocator, fixture.conn, "INSERT INTO t(a) VALUES (1)");
+    var stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO t(a) VALUES (1)");
     defer stmt.deinit();
 
     _ = try stmt.stmt.execute();
@@ -80,7 +80,7 @@ test "engine diagnostics expose C error messages" {
     var diagnostic = turso.err.Diagnostic.init(allocator);
     defer diagnostic.deinit();
 
-    try std.testing.expectError(error.Generic, fixture.conn.executeDiagnostic("SELEC invalid", &diagnostic));
+    try std.testing.expectError(error.Generic, fixture.conn.executeWithDiagnostic("SELEC invalid", &diagnostic));
     try std.testing.expect(diagnostic.message != null);
     try std.testing.expect(diagnostic.message.?.len > 0);
 }

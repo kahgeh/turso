@@ -10,7 +10,7 @@ test "row value kinds and accounting are preserved across statement transitions"
 
     var create_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "CREATE TABLE t(i INTEGER, r REAL, s TEXT, b BLOB, n INTEGER)",
     );
     defer create_stmt.deinit();
@@ -18,7 +18,7 @@ test "row value kinds and accounting are preserved across statement transitions"
 
     var insert_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "INSERT INTO t(i, r, s, b, n) VALUES (42, 3.5, 'hello', x'deadbeef', NULL)",
     );
     defer insert_stmt.deinit();
@@ -27,7 +27,7 @@ test "row value kinds and accounting are preserved across statement transitions"
     try std.testing.expectEqual(@as(i64, 1), insert_stmt.stmt.nChange());
     try std.testing.expectEqual(@as(i64, 1), fixture.conn.lastInsertRowId());
 
-    var query_stmt = try support.prepare(allocator, fixture.conn, "SELECT i, r, s, b, n FROM t");
+    var query_stmt = try support.prepare(allocator, &fixture.conn, "SELECT i, r, s, b, n FROM t");
     defer query_stmt.deinit();
 
     try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try query_stmt.stmt.step());

@@ -8,16 +8,16 @@ test "open create insert query over memory" {
     var fixture = try support.openInMemory(allocator);
     defer fixture.deinit();
 
-    var create_stmt = try support.prepare(allocator, fixture.conn, "CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT)");
+    var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT)");
     defer create_stmt.deinit();
     try std.testing.expectEqual(@as(u64, 0), try create_stmt.stmt.execute());
 
-    var insert_stmt = try support.prepare(allocator, fixture.conn, "INSERT INTO users(name) VALUES ('ada')");
+    var insert_stmt = try support.prepare(allocator, &fixture.conn, "INSERT INTO users(name) VALUES ('ada')");
     defer insert_stmt.deinit();
     try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
     try std.testing.expectEqual(@as(i64, 1), fixture.conn.lastInsertRowId());
 
-    var query_stmt = try support.prepare(allocator, fixture.conn, "SELECT id, name FROM users");
+    var query_stmt = try support.prepare(allocator, &fixture.conn, "SELECT id, name FROM users");
     defer query_stmt.deinit();
 
     try std.testing.expectEqual(@as(i64, 2), query_stmt.stmt.columnCount());
@@ -41,13 +41,13 @@ test "finalize partially consumed statement and keep connection usable" {
     var fixture = try support.openInMemory(allocator);
     defer fixture.deinit();
 
-    var create_stmt = try support.prepare(allocator, fixture.conn, "CREATE TABLE items(value INTEGER)");
+    var create_stmt = try support.prepare(allocator, &fixture.conn, "CREATE TABLE items(value INTEGER)");
     defer create_stmt.deinit();
     _ = try create_stmt.stmt.execute();
 
     var insert_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "INSERT INTO items(value) VALUES (1), (2) RETURNING value",
     );
     defer insert_stmt.deinit();
@@ -57,7 +57,7 @@ test "finalize partially consumed statement and keep connection usable" {
 
     try insert_stmt.finalize();
 
-    var count_stmt = try support.prepare(allocator, fixture.conn, "SELECT COUNT(*) FROM items");
+    var count_stmt = try support.prepare(allocator, &fixture.conn, "SELECT COUNT(*) FROM items");
     defer count_stmt.deinit();
 
     try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try count_stmt.stmt.step());

@@ -3,8 +3,7 @@ const turso = @import("turso");
 
 pub const Fixture = struct {
     db: turso.db.Database,
-    conn: *turso.conn.Connection,
-    allocator: std.mem.Allocator,
+    conn: turso.conn.Connection,
     closed: bool = false,
 
     pub fn close(self: *Fixture) !void {
@@ -20,14 +19,12 @@ pub const Fixture = struct {
             };
         }
         self.conn.deinit();
-        self.allocator.destroy(self.conn);
         self.db.deinit();
     }
 };
 
 pub const StatementGuard = struct {
-    stmt: *turso.stmt.Statement,
-    allocator: std.mem.Allocator,
+    stmt: turso.stmt.Statement,
     finalized: bool = false,
 
     pub fn finalize(self: *StatementGuard) !void {
@@ -43,7 +40,6 @@ pub const StatementGuard = struct {
             };
         }
         self.stmt.deinit();
-        self.allocator.destroy(self.stmt);
     }
 };
 
@@ -55,16 +51,12 @@ pub fn openInMemory(allocator: std.mem.Allocator) !Fixture {
     try db.create(&config);
     errdefer db.deinit();
 
-    const conn = try db.connect();
-    errdefer {
-        conn.deinit();
-        allocator.destroy(conn);
-    }
+    var conn = try db.connect();
+    errdefer conn.deinit();
 
     return Fixture{
         .db = db,
         .conn = conn,
-        .allocator = allocator,
     };
 }
 
@@ -73,8 +65,8 @@ pub fn prepare(
     conn: *turso.conn.Connection,
     sql: []const u8,
 ) !StatementGuard {
+    _ = allocator;
     return StatementGuard{
         .stmt = try conn.prepareSingle(sql),
-        .allocator = allocator,
     };
 }

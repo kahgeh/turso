@@ -21,7 +21,7 @@ test "execute batch and query collect owned rows" {
     var opened = try turso.Builder.newLocal(allocator, ":memory:").build();
     defer opened.deinit();
 
-    var conn = try opened.connectValue();
+    var conn = try opened.connect();
     defer conn.deinit();
 
     try std.testing.expectEqual(

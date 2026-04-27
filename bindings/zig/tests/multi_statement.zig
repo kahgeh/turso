@@ -19,7 +19,7 @@ test "prepareFirst iterates through multiple statements" {
     var statement_count: usize = 0;
 
     while (start < sql.len) {
-        const result = try fixture.conn.prepareFirstValue(sql[start..]);
+        const result = try fixture.conn.prepareFirst(sql[start..]);
         if (result.statement == null) {
             const rest = sql[start..];
             const trimmed_len = std.mem.trim(u8, rest, " \t\r\n").len;
@@ -57,7 +57,7 @@ test "prepareFirst iterates through multiple statements" {
     try std.testing.expectEqual(@as(i64, 1), selected_values.items[0]);
     try std.testing.expectEqual(@as(i64, 2), selected_values.items[1]);
 
-    const empty_result = try fixture.conn.prepareFirstValue("   ");
+    const empty_result = try fixture.conn.prepareFirst("   ");
     try std.testing.expect(empty_result.statement == null);
     try std.testing.expectEqual(@as(usize, 0), empty_result.tail_idx);
 }

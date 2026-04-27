@@ -238,11 +238,6 @@ pub const Statement = struct {
         return @intCast(position);
     }
 
-    /// Compatibility helper for callers that still need the old -1 sentinel contract.
-    pub fn namedPositionOrMinusOne(self: *Statement, name: []const u8) i64 {
-        return if (self.namedPosition(name) catch null) |position| @intCast(position) else -1;
-    }
-
     /// Checked parameter count accessor. Invalid statement handles return `error.Misuse`.
     pub fn parametersCountChecked(self: *Statement) err.TursoError!i64 {
         if (self.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);

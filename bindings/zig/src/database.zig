@@ -74,7 +74,7 @@ pub const Builder = struct {
         var database = try self.build();
         errdefer database.deinit();
 
-        const conn = try database.connectValue();
+        const conn = try database.connect();
         return .{
             .database = database,
             .connection = conn,
@@ -175,7 +175,7 @@ pub const Database = struct {
     }
 
     /// Connect to the database and return a value handle.
-    pub fn connectValue(self: *Database) err.TursoError!connection.Connection {
+    pub fn connect(self: *Database) err.TursoError!connection.Connection {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -196,17 +196,6 @@ pub const Database = struct {
             .ptr = conn,
             .allocator = self.allocator,
         };
-    }
-
-    /// Compatibility helper that heap-allocates the wrapper handle.
-    pub fn connect(self: *Database) err.TursoError!*connection.Connection {
-        const conn = try self.connectValue();
-        const connection_wrapper = self.allocator.create(connection.Connection) catch {
-            c.turso_connection_deinit(conn.ptr);
-            return error.OutOfMemory;
-        };
-        connection_wrapper.* = conn;
-        return connection_wrapper;
     }
 
     /// Deinitialize and free the database handle.

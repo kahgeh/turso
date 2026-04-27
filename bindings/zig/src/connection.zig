@@ -4,16 +4,8 @@ const err = @import("error.zig");
 const statement_mod = @import("statement.zig");
 const value_mod = @import("value.zig");
 
-/// Result of preparing the first statement from multi-statement SQL.
-pub const PrepareFirstResult = struct {
-    /// The prepared statement, or null if no statements could be parsed.
-    statement: ?*statement_mod.Statement,
-    /// Byte offset in sql right after the parsed statement.
-    tail_idx: usize,
-};
-
 /// Result of preparing the first statement from multi-statement SQL as a value handle.
-pub const PrepareFirstValueResult = struct {
+pub const PrepareFirstResult = struct {
     /// The prepared statement, or null if no statements could be parsed.
     statement: ?statement_mod.Statement,
     /// Byte offset in sql right after the parsed statement.
@@ -209,20 +201,20 @@ pub const Connection = struct {
     }
 
     /// Prepare a single SQL statement and return a value handle.
-    pub fn prepareSingleValue(self: *Connection, sql: []const u8) err.TursoError!statement_mod.Statement {
-        return self.prepareSingleValueWithDiagnostic(sql, null);
+    pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!statement_mod.Statement {
+        return self.prepareSingleInternal(sql, null);
     }
 
     /// Prepare a single SQL statement and capture engine diagnostics on failure.
-    pub fn prepareSingleValueDiagnostic(
+    pub fn prepareSingleWithDiagnostic(
         self: *Connection,
         sql: []const u8,
         diagnostic: *err.Diagnostic,
     ) err.TursoError!statement_mod.Statement {
-        return self.prepareSingleValueWithDiagnostic(sql, diagnostic);
+        return self.prepareSingleInternal(sql, diagnostic);
     }
 
-    fn prepareSingleValueWithDiagnostic(
+    fn prepareSingleInternal(
         self: *Connection,
         sql: []const u8,
         diagnostic: ?*err.Diagnostic,
@@ -252,25 +244,9 @@ pub const Connection = struct {
         };
     }
 
-    /// Compatibility helper that heap-allocates the wrapper handle.
-    pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!*statement_mod.Statement {
-        const stmt = try self.prepareSingleValue(sql);
-        const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
-            var finalize_err: [*c]const u8 = null;
-            _ = c.turso_statement_finalize(stmt.ptr, &finalize_err);
-            if (finalize_err != null) {
-                c.turso_str_deinit(finalize_err);
-            }
-            c.turso_statement_deinit(stmt.ptr);
-            return error.OutOfMemory;
-        };
-        statement_wrapper.* = stmt;
-        return statement_wrapper;
-    }
-
     /// Prepare and execute a single SQL statement to completion.
     pub fn execute(self: *Connection, sql: []const u8) err.TursoError!u64 {
-        var stmt = try self.prepareSingleValue(sql);
+        var stmt = try self.prepareSingle(sql);
         defer {
             stmt.finalize() catch {};
             stmt.deinit();
@@ -279,12 +255,12 @@ pub const Connection = struct {
     }
 
     /// Prepare and execute SQL while capturing engine diagnostics on failure.
-    pub fn executeDiagnostic(
+    pub fn executeWithDiagnostic(
         self: *Connection,
         sql: []const u8,
         diagnostic: *err.Diagnostic,
     ) err.TursoError!u64 {
-        var stmt = try self.prepareSingleValueDiagnostic(sql, diagnostic);
+        var stmt = try self.prepareSingleWithDiagnostic(sql, diagnostic);
         defer {
             stmt.finalize() catch {};
             stmt.deinit();
@@ -298,7 +274,7 @@ pub const Connection = struct {
         var total_changes: u64 = 0;
 
         while (start < sql.len) {
-            const result = try self.prepareFirstValue(sql[start..]);
+            const result = try self.prepareFirst(sql[start..]);
             if (result.statement == null) {
                 if (std.mem.trim(u8, sql[start..], " \t\r\n").len != 0) {
                     return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
@@ -389,7 +365,7 @@ pub const Connection = struct {
     /// Borrowed text/blob slices from `RowView` stay valid until `Rows.next()`,
     /// `Statement.reset()`, `Statement.finalize()`, or `Rows.deinit()`.
     pub fn rows(self: *Connection, sql: []const u8) err.TursoError!Rows {
-        var stmt = try self.prepareSingleValue(sql);
+        var stmt = try self.prepareSingle(sql);
         errdefer {
             stmt.finalize() catch {};
             stmt.deinit();
@@ -413,7 +389,7 @@ pub const Connection = struct {
 
     /// Prepare the first SQL statement from a string that may contain multiple statements.
     /// Returns null statement if no statements could be parsed, or TursoError on failure.
-    pub fn prepareFirstValue(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstValueResult {
+    pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -442,34 +418,9 @@ pub const Connection = struct {
             };
         }
 
-        return PrepareFirstValueResult{
+        return PrepareFirstResult{
             .statement = wrapped_stmt,
             .tail_idx = tail_idx,
-        };
-    }
-
-    /// Compatibility helper that heap-allocates the wrapper handle.
-    pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
-        const result = try self.prepareFirstValue(sql);
-
-        var wrapped_stmt: ?*statement_mod.Statement = null;
-        if (result.statement) |stmt| {
-            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
-                var finalize_err: [*c]const u8 = null;
-                _ = c.turso_statement_finalize(stmt.ptr, &finalize_err);
-                if (finalize_err != null) {
-                    c.turso_str_deinit(finalize_err);
-                }
-                c.turso_statement_deinit(stmt.ptr);
-                return error.OutOfMemory;
-            };
-            statement_wrapper.* = stmt;
-            wrapped_stmt = statement_wrapper;
-        }
-
-        return .{
-            .statement = wrapped_stmt,
-            .tail_idx = result.tail_idx,
         };
     }
 

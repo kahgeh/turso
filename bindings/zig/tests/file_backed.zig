@@ -19,27 +19,21 @@ test "file-backed databases reopen and share committed state" {
         try db.create(&.{ .path = db_path });
         defer db.deinit();
 
-        const conn1 = try db.connect();
-        defer {
-            conn1.deinit();
-            allocator.destroy(conn1);
-        }
+        var conn1 = try db.connect();
+        defer conn1.deinit();
 
-        const conn2 = try db.connect();
-        defer {
-            conn2.deinit();
-            allocator.destroy(conn2);
-        }
+        var conn2 = try db.connect();
+        defer conn2.deinit();
 
-        var create_stmt = try support.prepare(allocator, conn1, "CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)");
+        var create_stmt = try support.prepare(allocator, &conn1, "CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)");
         defer create_stmt.deinit();
         _ = try create_stmt.stmt.execute();
 
-        var insert_stmt = try support.prepare(allocator, conn1, "INSERT INTO t(name) VALUES ('alice')");
+        var insert_stmt = try support.prepare(allocator, &conn1, "INSERT INTO t(name) VALUES ('alice')");
         defer insert_stmt.deinit();
         try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
 
-        var count_stmt = try support.prepare(allocator, conn2, "SELECT COUNT(*) FROM t");
+        var count_stmt = try support.prepare(allocator, &conn2, "SELECT COUNT(*) FROM t");
         defer count_stmt.deinit();
         try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try count_stmt.stmt.step());
         try std.testing.expectEqual(@as(i64, 1), count_stmt.stmt.rowValueInt(0));
@@ -51,13 +45,10 @@ test "file-backed databases reopen and share committed state" {
         try db.create(&.{ .path = db_path });
         defer db.deinit();
 
-        const conn = try db.connect();
-        defer {
-            conn.deinit();
-            allocator.destroy(conn);
-        }
+        var conn = try db.connect();
+        defer conn.deinit();
 
-        var count_stmt = try support.prepare(allocator, conn, "SELECT COUNT(*) FROM t");
+        var count_stmt = try support.prepare(allocator, &conn, "SELECT COUNT(*) FROM t");
         defer count_stmt.deinit();
         try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try count_stmt.stmt.step());
         try std.testing.expectEqual(@as(i64, 1), count_stmt.stmt.rowValueInt(0));

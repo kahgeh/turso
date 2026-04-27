@@ -94,24 +94,24 @@ pub fn main() !void {
     try db.create(&.{ .path = ":memory:" });
     defer db.deinit();
 
-    var conn = try db.connectValue();
+    var conn = try db.connect();
     defer conn.deinit();
 
-    var create_stmt = try conn.prepareSingleValue("CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)");
+    var create_stmt = try conn.prepareSingle("CREATE TABLE t(id INTEGER PRIMARY KEY, name TEXT)");
     defer {
         create_stmt.finalize() catch {};
         create_stmt.deinit();
     }
     _ = try create_stmt.execute();
 
-    var insert_stmt = try conn.prepareSingleValue("INSERT INTO t(name) VALUES ('"'"'ada'"'"')");
+    var insert_stmt = try conn.prepareSingle("INSERT INTO t(name) VALUES ('"'"'ada'"'"')");
     defer {
         insert_stmt.finalize() catch {};
         insert_stmt.deinit();
     }
     _ = try insert_stmt.execute();
 
-    var query_stmt = try conn.prepareSingleValue("SELECT id, name FROM t");
+    var query_stmt = try conn.prepareSingle("SELECT id, name FROM t");
     defer {
         query_stmt.finalize() catch {};
         query_stmt.deinit();
@@ -134,12 +134,12 @@ pub fn main() !void {
 ## Ownership Rules
 
 - `Database`, `Connection`, and `Statement` handles must be explicitly deinitialized.
-- Prefer `connectValue()`, `prepareSingleValue()`, and `prepareFirstValue()` for value handles.
+- `connect()`, `prepareSingle()`, and `prepareFirst()` return value handles.
 - `Connection.close()` and `Statement.finalize()` are separate from `deinit()`.
 - Text and blob row values returned by the wrapper are owned copies in Zig memory.
 - `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
 - `Connection.rows()` streams row views; borrowed text/blob slices are valid until the next step, reset, finalize, or `Rows.deinit()`.
-- Pass `err.Diagnostic` to diagnostic variants such as `executeDiagnostic()` to keep engine error messages.
+- Pass `err.Diagnostic` to diagnostic variants such as `executeWithDiagnostic()` to keep engine error messages.
 - `Statement.execute()` and `step()` auto-drive `TURSO_IO`; `executeOnce()` and `stepOnce()` expose it to caller-managed event loops.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
 - `Statement.namedPosition()` returns `!?usize`; null means the named parameter is absent.

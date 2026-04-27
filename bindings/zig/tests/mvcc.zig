@@ -26,14 +26,11 @@ fn runConcurrentInsert(
     result: *WorkerResult,
     worker_id: usize,
 ) void {
-    const conn = db.connect() catch |connect_err| {
+    var conn = db.connect() catch |connect_err| {
         result.err = connect_err;
         return;
     };
-    defer {
-        conn.deinit();
-        db.allocator.destroy(conn);
-    }
+    defer conn.deinit();
 
     var insert_buf: [96]u8 = undefined;
     const insert_sql = std.fmt.bufPrint(
@@ -58,7 +55,7 @@ fn runConcurrentInsert(
         }
 
         _ = conn.execute(insert_sql) catch |insert_err| {
-            rollbackIfNeeded(conn);
+            rollbackIfNeeded(&conn);
             if (isRetryable(insert_err)) {
                 _ = std.Thread.yield() catch {};
                 continue;
@@ -68,7 +65,7 @@ fn runConcurrentInsert(
         };
 
         _ = conn.execute("COMMIT") catch |commit_err| {
-            rollbackIfNeeded(conn);
+            rollbackIfNeeded(&conn);
             if (isRetryable(commit_err)) {
                 _ = std.Thread.yield() catch {};
                 continue;
@@ -101,11 +98,8 @@ test "mvcc begin concurrent allows multiple writer connections to commit" {
         .build();
     defer db.deinit();
 
-    const setup_conn = try db.connect();
-    defer {
-        setup_conn.deinit();
-        db.allocator.destroy(setup_conn);
-    }
+    var setup_conn = try db.connect();
+    defer setup_conn.deinit();
 
     var journal_mode = try setup_conn.query("PRAGMA journal_mode = 'mvcc'");
     defer journal_mode.deinit();

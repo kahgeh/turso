@@ -26,21 +26,18 @@ test "async io databases retry execute and step transparently" {
     var db = try openAsyncFileBacked(allocator, db_path);
     defer db.deinit();
 
-    const conn = try db.connect();
-    defer {
-        conn.deinit();
-        allocator.destroy(conn);
-    }
+    var conn = try db.connect();
+    defer conn.deinit();
 
-    var create_stmt = try support.prepare(allocator, conn, "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)");
+    var create_stmt = try support.prepare(allocator, &conn, "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT)");
     defer create_stmt.deinit();
     _ = try create_stmt.stmt.execute();
 
-    var insert_stmt = try support.prepare(allocator, conn, "INSERT INTO t(value) VALUES ('alpha')");
+    var insert_stmt = try support.prepare(allocator, &conn, "INSERT INTO t(value) VALUES ('alpha')");
     defer insert_stmt.deinit();
     try std.testing.expectEqual(@as(u64, 1), try insert_stmt.stmt.execute());
 
-    var select_stmt = try support.prepare(allocator, conn, "SELECT value FROM t WHERE id = 1");
+    var select_stmt = try support.prepare(allocator, &conn, "SELECT value FROM t WHERE id = 1");
     defer select_stmt.deinit();
 
     try std.testing.expectEqual(turso.status.StatusCode.TURSO_ROW, try select_stmt.stmt.step());
@@ -65,13 +62,10 @@ test "async io can be driven explicitly" {
     var db = try openAsyncFileBacked(allocator, db_path);
     defer db.deinit();
 
-    const conn = try db.connect();
-    defer {
-        conn.deinit();
-        allocator.destroy(conn);
-    }
+    var conn = try db.connect();
+    defer conn.deinit();
 
-    var create_stmt = try support.prepare(allocator, conn, "CREATE TABLE t(value TEXT)");
+    var create_stmt = try support.prepare(allocator, &conn, "CREATE TABLE t(value TEXT)");
     defer create_stmt.deinit();
 
     while (true) {
@@ -83,11 +77,11 @@ test "async io can be driven explicitly" {
         }
     }
 
-    var insert_stmt = try support.prepare(allocator, conn, "INSERT INTO t(value) VALUES ('explicit')");
+    var insert_stmt = try support.prepare(allocator, &conn, "INSERT INTO t(value) VALUES ('explicit')");
     defer insert_stmt.deinit();
     _ = try insert_stmt.stmt.execute();
 
-    var select_stmt = try support.prepare(allocator, conn, "SELECT value FROM t");
+    var select_stmt = try support.prepare(allocator, &conn, "SELECT value FROM t");
     defer select_stmt.deinit();
 
     while (true) {

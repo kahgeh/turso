@@ -10,7 +10,7 @@ test "column metadata returns owned copies and declared types" {
 
     var create_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "CREATE TABLE t(id INTEGER, name TEXT)",
     );
     defer create_stmt.deinit();
@@ -18,7 +18,7 @@ test "column metadata returns owned copies and declared types" {
 
     var insert_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "INSERT INTO t(id, name) VALUES (1, 'alice')",
     );
     defer insert_stmt.deinit();
@@ -26,7 +26,7 @@ test "column metadata returns owned copies and declared types" {
 
     var query_stmt = try support.prepare(
         allocator,
-        fixture.conn,
+        &fixture.conn,
         "SELECT id, name FROM t",
     );
     defer query_stmt.deinit();
