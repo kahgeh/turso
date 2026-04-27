@@ -135,6 +135,7 @@ pub fn main() !void {
 - `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
 - `Connection.rows()` streams row views; borrowed text/blob slices are valid until the next step, reset, finalize, or `Rows.deinit()`.
 - Pass `err.Diagnostic` to diagnostic variants such as `executeDiagnostic()` to keep engine error messages.
+- `Statement.execute()` and `step()` auto-drive `TURSO_IO`; `executeOnce()` and `stepOnce()` expose it to caller-managed event loops.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
 - `Statement.namedPosition()` returns `!?usize`; null means the named parameter is absent.
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
@@ -161,6 +162,7 @@ The current test matrix covers:
 - regression queries for `RETURNING`, joins, subqueries, `ALTER TABLE`, `generate_series`, and JSON helpers
 - misuse and lifecycle error paths
 - engine diagnostic message capture
+- synchronous and caller-driven async IO stepping
 - file-backed reopen and duplicate-connection coverage
 - encryption reopen and wrong-key coverage
 - busy-timeout and concurrent-writer contention coverage
