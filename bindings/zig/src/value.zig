@@ -42,6 +42,16 @@ pub const OwnedValue = union(ValueKind) {
     }
 };
 
+/// Borrowed row value valid until the statement is stepped, reset, or finalized.
+pub const BorrowedValue = union(ValueKind) {
+    unknown: void,
+    integer: i64,
+    real: f64,
+    text: []const u8,
+    blob: []const u8,
+    null: void,
+};
+
 /// Read an INTEGER value at the given index. Returns 0 for non-integer kinds.
 pub fn readInt(
     statement_ptr: *c.turso_statement_t,
@@ -94,4 +104,20 @@ pub fn readBlob(
     const out = try allocator.alloc(u8, len);
     std.mem.copyForwards(u8, out, ptr[0..len]);
     return out;
+}
+
+/// Read TEXT or BLOB bytes as a borrowed slice from the current statement row.
+/// The slice is valid until the statement is stepped, reset, or finalized.
+pub fn readBytesBorrowed(
+    statement_ptr: *c.turso_statement_t,
+    index: usize,
+) []const u8 {
+    const n = c.turso_statement_row_value_bytes_count(statement_ptr, index);
+    if (n <= 0) return "";
+    const len: usize = @intCast(n);
+
+    const ptr = c.turso_statement_row_value_bytes_ptr(statement_ptr, index);
+    if (ptr == null) return "";
+
+    return ptr[0..len];
 }

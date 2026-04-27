@@ -133,6 +133,7 @@ pub fn main() !void {
 - `Connection.close()` and `Statement.finalize()` are separate from `deinit()`.
 - Text and blob row values returned by the wrapper are owned copies in Zig memory.
 - `Connection.query()` returns owned copied rows and metadata; call `QueryResult.deinit()` to release them.
+- `Connection.rows()` streams row views; borrowed text/blob slices are valid until the next step, reset, finalize, or `Rows.deinit()`.
 - Metadata strings returned by `columnName()` and `columnDecltype()` are owned copies in Zig memory.
 - `Statement.namedPosition()` returns `!?usize`; null means the named parameter is absent.
 - Strings allocated by Turso are released inside the wrapper with `turso_str_deinit()`.
@@ -154,6 +155,7 @@ The current test matrix covers:
 - column metadata ownership
 - multi-statement `prepareFirst()` parsing
 - row value kinds and copied TEXT/BLOB values
+- streaming row iteration with borrowed TEXT/BLOB values
 - row-change and last-insert-rowid accounting
 - regression queries for `RETURNING`, joins, subqueries, `ALTER TABLE`, `generate_series`, and JSON helpers
 - misuse and lifecycle error paths

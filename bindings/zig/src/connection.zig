@@ -41,6 +41,83 @@ pub const Row = struct {
     }
 };
 
+/// Borrowed view of the current row. Text and blob slices are valid until the
+/// owning `Rows` is stepped again, reset, or deinitialized.
+pub const RowView = struct {
+    stmt: *statement_mod.Statement,
+    column_count: usize,
+
+    pub fn len(self: RowView) usize {
+        return self.column_count;
+    }
+
+    pub fn valueKind(self: RowView, index: usize) err.TursoError!value_mod.ValueKind {
+        return self.stmt.rowValueKindChecked(index);
+    }
+
+    pub fn int(self: RowView, index: usize) err.TursoError!i64 {
+        return self.stmt.rowValueIntChecked(index);
+    }
+
+    pub fn double(self: RowView, index: usize) err.TursoError!f64 {
+        return self.stmt.rowValueDoubleChecked(index);
+    }
+
+    pub fn text(self: RowView, index: usize) err.TursoError![]const u8 {
+        if (self.stmt.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.stmt.allocator);
+        return value_mod.readBytesBorrowed(self.stmt.ptr.?, index);
+    }
+
+    pub fn blob(self: RowView, index: usize) err.TursoError![]const u8 {
+        if (self.stmt.ptr == null) return err.mapStatus(c.TURSO_MISUSE, null, self.stmt.allocator);
+        return value_mod.readBytesBorrowed(self.stmt.ptr.?, index);
+    }
+
+    pub fn borrowedValue(self: RowView, index: usize) err.TursoError!value_mod.BorrowedValue {
+        return switch (try self.valueKind(index)) {
+            .integer => .{ .integer = try self.int(index) },
+            .real => .{ .real = try self.double(index) },
+            .text => .{ .text = try self.text(index) },
+            .blob => .{ .blob = try self.blob(index) },
+            .null => .{ .null = {} },
+            .unknown => .{ .unknown = {} },
+        };
+    }
+
+    pub fn ownedValue(self: RowView, index: usize) !value_mod.OwnedValue {
+        return self.stmt.rowValue(index);
+    }
+};
+
+/// Streaming row iterator. Owns the prepared statement backing row views.
+pub const Rows = struct {
+    stmt: statement_mod.Statement,
+    column_count: usize,
+    done: bool = false,
+
+    pub fn next(self: *Rows) err.TursoError!?RowView {
+        if (self.done) return null;
+
+        return switch (try self.stmt.step()) {
+            .TURSO_ROW => RowView{
+                .stmt = &self.stmt,
+                .column_count = self.column_count,
+            },
+            .TURSO_DONE => {
+                self.done = true;
+                return null;
+            },
+            else => err.mapStatus(c.TURSO_MISUSE, null, self.stmt.allocator),
+        };
+    }
+
+    pub fn deinit(self: *Rows) void {
+        self.stmt.finalize() catch {};
+        self.stmt.deinit();
+        self.done = true;
+    }
+};
+
 pub const QueryResult = struct {
     columns: []Column,
     rows: []Row,
@@ -217,17 +294,10 @@ pub const Connection = struct {
 
     /// Prepare, run, and collect a query into owned Zig rows.
     pub fn query(self: *Connection, sql: []const u8) err.TursoError!QueryResult {
-        var stmt = try self.prepareSingleValue(sql);
-        defer {
-            stmt.finalize() catch {};
-            stmt.deinit();
-        }
+        var stream = try self.rows(sql);
+        defer stream.deinit();
 
-        const raw_column_count = try stmt.columnCountChecked();
-        if (raw_column_count < 0) {
-            return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
-        }
-        const column_count: usize = @intCast(raw_column_count);
+        const column_count = stream.column_count;
 
         var columns = try self.allocator.alloc(Column, column_count);
         var initialized_columns: usize = 0;
@@ -239,8 +309,8 @@ pub const Connection = struct {
         }
 
         for (columns, 0..) |*column, index| {
-            const name = try stmt.columnName(index);
-            const decltype = stmt.columnDecltype(index) catch |column_err| {
+            const name = try stream.stmt.columnName(index);
+            const decltype = stream.stmt.columnDecltype(index) catch |column_err| {
                 self.allocator.free(name);
                 return column_err;
             };
@@ -251,42 +321,57 @@ pub const Connection = struct {
             initialized_columns += 1;
         }
 
-        var rows = std.array_list.Managed(Row).init(self.allocator);
+        var row_list = std.array_list.Managed(Row).init(self.allocator);
         errdefer {
-            for (rows.items) |*row| {
+            for (row_list.items) |*row| {
                 row.deinit(self.allocator);
             }
-            rows.deinit();
+            row_list.deinit();
         }
 
-        while (true) {
-            switch (try stmt.step()) {
-                .TURSO_ROW => {
-                    var values = try self.allocator.alloc(value_mod.OwnedValue, column_count);
-                    var initialized_values: usize = 0;
-                    errdefer {
-                        for (values[0..initialized_values]) |*value| {
-                            value.deinit(self.allocator);
-                        }
-                        self.allocator.free(values);
-                    }
-
-                    for (values, 0..) |*value, index| {
-                        value.* = try stmt.rowValue(index);
-                        initialized_values += 1;
-                    }
-
-                    try rows.append(.{ .values = values });
-                },
-                .TURSO_DONE => break,
-                else => return err.mapStatus(c.TURSO_MISUSE, null, self.allocator),
+        while (try stream.next()) |row| {
+            var values = try self.allocator.alloc(value_mod.OwnedValue, column_count);
+            var initialized_values: usize = 0;
+            errdefer {
+                for (values[0..initialized_values]) |*value| {
+                    value.deinit(self.allocator);
+                }
+                self.allocator.free(values);
             }
+
+            for (values, 0..) |*value, index| {
+                value.* = try row.ownedValue(index);
+                initialized_values += 1;
+            }
+
+            try row_list.append(.{ .values = values });
         }
 
         return .{
             .columns = columns,
-            .rows = try rows.toOwnedSlice(),
+            .rows = try row_list.toOwnedSlice(),
             .allocator = self.allocator,
+        };
+    }
+
+    /// Prepare a query for streaming row iteration.
+    /// Borrowed text/blob slices from `RowView` stay valid until `Rows.next()`,
+    /// `Statement.reset()`, `Statement.finalize()`, or `Rows.deinit()`.
+    pub fn rows(self: *Connection, sql: []const u8) err.TursoError!Rows {
+        var stmt = try self.prepareSingleValue(sql);
+        errdefer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+        }
+
+        const raw_column_count = try stmt.columnCountChecked();
+        if (raw_column_count < 0) {
+            return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
+        }
+
+        return .{
+            .stmt = stmt,
+            .column_count = @intCast(raw_column_count),
         };
     }
 

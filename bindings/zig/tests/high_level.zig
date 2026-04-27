@@ -49,6 +49,35 @@ test "execute batch and query collect owned rows" {
     try std.testing.expectEqualSlices(u8, &.{ 0x03, 0x04 }, result.rows[1].values[2].blob);
 }
 
+test "rows streams borrowed row views" {
+    const allocator = std.testing.allocator;
+
+    var opened = try turso.Builder.newLocal(allocator, ":memory:").connect();
+    defer opened.deinit();
+
+    _ = try opened.connection.executeBatch(
+        "CREATE TABLE t(id INTEGER PRIMARY KEY, value TEXT, payload BLOB); " ++
+            "INSERT INTO t(value, payload) VALUES ('alpha', x'0102'), ('beta', x'0304');",
+    );
+
+    var rows = try opened.connection.rows("SELECT id, value, payload FROM t ORDER BY id");
+    defer rows.deinit();
+
+    const first = (try rows.next()).?;
+    try std.testing.expectEqual(@as(usize, 3), first.len());
+    try std.testing.expectEqual(@as(i64, 1), try first.int(0));
+    try std.testing.expectEqualStrings("alpha", try first.text(1));
+    try std.testing.expectEqualSlices(u8, &.{ 0x01, 0x02 }, try first.blob(2));
+
+    const second = (try rows.next()).?;
+    try std.testing.expectEqual(@as(i64, 2), try second.int(0));
+    try std.testing.expectEqualStrings("beta", try second.text(1));
+    try std.testing.expectEqualSlices(u8, &.{ 0x03, 0x04 }, try second.blob(2));
+
+    try std.testing.expectEqual(null, try rows.next());
+    try std.testing.expectEqual(null, try rows.next());
+}
+
 test "transaction wrapper commits and rolls back explicitly" {
     const allocator = std.testing.allocator;
 
