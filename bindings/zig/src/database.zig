@@ -74,11 +74,10 @@ pub const Builder = struct {
         var database = try self.build();
         errdefer database.deinit();
 
-        const conn = try database.connect();
+        const conn = try database.connectValue();
         return .{
             .database = database,
             .connection = conn,
-            .allocator = self.allocator,
         };
     }
 };
@@ -86,12 +85,10 @@ pub const Builder = struct {
 /// Owns both a database and one connection created from it.
 pub const OpenConnection = struct {
     database: Database,
-    connection: *connection.Connection,
-    allocator: std.mem.Allocator,
+    connection: connection.Connection,
 
     pub fn deinit(self: *OpenConnection) void {
         self.connection.deinit();
-        self.allocator.destroy(self.connection);
         self.database.deinit();
     }
 };
@@ -177,8 +174,8 @@ pub const Database = struct {
         try self.create(config);
     }
 
-    /// Connect to the database and return a new Connection.
-    pub fn connect(self: *Database) err.TursoError!*connection.Connection {
+    /// Connect to the database and return a value handle.
+    pub fn connectValue(self: *Database) err.TursoError!connection.Connection {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -195,14 +192,20 @@ pub const Database = struct {
             return err.mapStatus(status, err_ptr, self.allocator);
         }
 
-        const connection_wrapper = self.allocator.create(connection.Connection) catch {
-            c.turso_connection_deinit(conn);
-            return error.OutOfMemory;
-        };
-        connection_wrapper.* = connection.Connection{
+        return connection.Connection{
             .ptr = conn,
             .allocator = self.allocator,
         };
+    }
+
+    /// Compatibility helper that heap-allocates the wrapper handle.
+    pub fn connect(self: *Database) err.TursoError!*connection.Connection {
+        const conn = try self.connectValue();
+        const connection_wrapper = self.allocator.create(connection.Connection) catch {
+            c.turso_connection_deinit(conn.ptr);
+            return error.OutOfMemory;
+        };
+        connection_wrapper.* = conn;
         return connection_wrapper;
     }
 

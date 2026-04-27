@@ -21,11 +21,8 @@ test "execute batch and query collect owned rows" {
     var opened = try turso.Builder.newLocal(allocator, ":memory:").build();
     defer opened.deinit();
 
-    const conn = try opened.connect();
-    defer {
-        conn.deinit();
-        allocator.destroy(conn);
-    }
+    var conn = try opened.connectValue();
+    defer conn.deinit();
 
     try std.testing.expectEqual(
         @as(u64, 2),

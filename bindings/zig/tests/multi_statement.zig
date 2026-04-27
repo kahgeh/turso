@@ -19,7 +19,7 @@ test "prepareFirst iterates through multiple statements" {
     var statement_count: usize = 0;
 
     while (start < sql.len) {
-        const result = try fixture.conn.prepareFirst(sql[start..]);
+        const result = try fixture.conn.prepareFirstValue(sql[start..]);
         if (result.statement == null) {
             const rest = sql[start..];
             const trimmed_len = std.mem.trim(u8, rest, " \t\r\n").len;
@@ -30,19 +30,19 @@ test "prepareFirst iterates through multiple statements" {
         try std.testing.expect(result.tail_idx > 0);
         statement_count += 1;
 
-        var stmt_guard = support.StatementGuard{
-            .stmt = result.statement.?,
-            .allocator = allocator,
-        };
-        defer stmt_guard.deinit();
+        var stmt = result.statement.?;
+        defer {
+            stmt.finalize() catch {};
+            stmt.deinit();
+        }
 
-        if (stmt_guard.stmt.columnCount() == 0) {
-            _ = try stmt_guard.stmt.execute();
+        if (stmt.columnCount() == 0) {
+            _ = try stmt.execute();
         } else {
             while (true) {
-                const step_status = try stmt_guard.stmt.step();
+                const step_status = try stmt.step();
                 switch (step_status) {
-                    .TURSO_ROW => try selected_values.append(stmt_guard.stmt.rowValueInt(0)),
+                    .TURSO_ROW => try selected_values.append(stmt.rowValueInt(0)),
                     .TURSO_DONE => break,
                     else => return error.TestUnexpectedResult,
                 }
@@ -57,7 +57,7 @@ test "prepareFirst iterates through multiple statements" {
     try std.testing.expectEqual(@as(i64, 1), selected_values.items[0]);
     try std.testing.expectEqual(@as(i64, 2), selected_values.items[1]);
 
-    const empty_result = try fixture.conn.prepareFirst("   ");
+    const empty_result = try fixture.conn.prepareFirstValue("   ");
     try std.testing.expect(empty_result.statement == null);
     try std.testing.expectEqual(@as(usize, 0), empty_result.tail_idx);
 }

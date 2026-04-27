@@ -12,6 +12,14 @@ pub const PrepareFirstResult = struct {
     tail_idx: usize,
 };
 
+/// Result of preparing the first statement from multi-statement SQL as a value handle.
+pub const PrepareFirstValueResult = struct {
+    /// The prepared statement, or null if no statements could be parsed.
+    statement: ?statement_mod.Statement,
+    /// Byte offset in sql right after the parsed statement.
+    tail_idx: usize,
+};
+
 pub const Column = struct {
     name: []u8,
     decltype: []u8,
@@ -123,8 +131,8 @@ pub const Connection = struct {
         }
     }
 
-    /// Prepare a single SQL statement. Returns an owned Statement or TursoError.
-    pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!*statement_mod.Statement {
+    /// Prepare a single SQL statement and return a value handle.
+    pub fn prepareSingleValue(self: *Connection, sql: []const u8) err.TursoError!statement_mod.Statement {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -144,29 +152,34 @@ pub const Connection = struct {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
 
-        const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
-            var finalize_err: [*c]const u8 = null;
-            _ = c.turso_statement_finalize(stmt, &finalize_err);
-            if (finalize_err != null) {
-                c.turso_str_deinit(finalize_err);
-            }
-            c.turso_statement_deinit(stmt);
-            return error.OutOfMemory;
-        };
-        statement_wrapper.* = statement_mod.Statement{
+        return statement_mod.Statement{
             .ptr = stmt,
             .allocator = self.allocator,
         };
+    }
+
+    /// Compatibility helper that heap-allocates the wrapper handle.
+    pub fn prepareSingle(self: *Connection, sql: []const u8) err.TursoError!*statement_mod.Statement {
+        const stmt = try self.prepareSingleValue(sql);
+        const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
+            var finalize_err: [*c]const u8 = null;
+            _ = c.turso_statement_finalize(stmt.ptr, &finalize_err);
+            if (finalize_err != null) {
+                c.turso_str_deinit(finalize_err);
+            }
+            c.turso_statement_deinit(stmt.ptr);
+            return error.OutOfMemory;
+        };
+        statement_wrapper.* = stmt;
         return statement_wrapper;
     }
 
     /// Prepare and execute a single SQL statement to completion.
     pub fn execute(self: *Connection, sql: []const u8) err.TursoError!u64 {
-        const stmt = try self.prepareSingle(sql);
+        var stmt = try self.prepareSingleValue(sql);
         defer {
             stmt.finalize() catch {};
             stmt.deinit();
-            self.allocator.destroy(stmt);
         }
         return stmt.execute();
     }
@@ -177,7 +190,7 @@ pub const Connection = struct {
         var total_changes: u64 = 0;
 
         while (start < sql.len) {
-            const result = try self.prepareFirst(sql[start..]);
+            const result = try self.prepareFirstValue(sql[start..]);
             if (result.statement == null) {
                 if (std.mem.trim(u8, sql[start..], " \t\r\n").len != 0) {
                     return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
@@ -189,11 +202,10 @@ pub const Connection = struct {
                 return err.mapStatus(c.TURSO_MISUSE, null, self.allocator);
             }
 
-            const stmt = result.statement.?;
+            var stmt = result.statement.?;
             defer {
                 stmt.finalize() catch {};
                 stmt.deinit();
-                self.allocator.destroy(stmt);
             }
 
             total_changes += try stmt.execute();
@@ -205,11 +217,10 @@ pub const Connection = struct {
 
     /// Prepare, run, and collect a query into owned Zig rows.
     pub fn query(self: *Connection, sql: []const u8) err.TursoError!QueryResult {
-        const stmt = try self.prepareSingle(sql);
+        var stmt = try self.prepareSingleValue(sql);
         defer {
             stmt.finalize() catch {};
             stmt.deinit();
-            self.allocator.destroy(stmt);
         }
 
         const raw_column_count = try stmt.columnCountChecked();
@@ -286,7 +297,7 @@ pub const Connection = struct {
 
     /// Prepare the first SQL statement from a string that may contain multiple statements.
     /// Returns null statement if no statements could be parsed, or TursoError on failure.
-    pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
+    pub fn prepareFirstValue(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstValueResult {
         if (self.ptr == null) {
             return err.mapStatus(
                 c.TURSO_MISUSE,
@@ -307,27 +318,42 @@ pub const Connection = struct {
             return err.mapStatus(status_code, err_ptr, self.allocator);
         }
 
-        var wrapped_stmt: ?*statement_mod.Statement = null;
+        var wrapped_stmt: ?statement_mod.Statement = null;
         if (stmt) |s| {
-            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
-                var finalize_err: [*c]const u8 = null;
-                _ = c.turso_statement_finalize(s, &finalize_err);
-                if (finalize_err != null) {
-                    c.turso_str_deinit(finalize_err);
-                }
-                c.turso_statement_deinit(s);
-                return error.OutOfMemory;
-            };
-            statement_wrapper.* = statement_mod.Statement{
+            wrapped_stmt = statement_mod.Statement{
                 .ptr = s,
                 .allocator = self.allocator,
             };
+        }
+
+        return PrepareFirstValueResult{
+            .statement = wrapped_stmt,
+            .tail_idx = tail_idx,
+        };
+    }
+
+    /// Compatibility helper that heap-allocates the wrapper handle.
+    pub fn prepareFirst(self: *Connection, sql: []const u8) err.TursoError!PrepareFirstResult {
+        const result = try self.prepareFirstValue(sql);
+
+        var wrapped_stmt: ?*statement_mod.Statement = null;
+        if (result.statement) |stmt| {
+            const statement_wrapper = self.allocator.create(statement_mod.Statement) catch {
+                var finalize_err: [*c]const u8 = null;
+                _ = c.turso_statement_finalize(stmt.ptr, &finalize_err);
+                if (finalize_err != null) {
+                    c.turso_str_deinit(finalize_err);
+                }
+                c.turso_statement_deinit(stmt.ptr);
+                return error.OutOfMemory;
+            };
+            statement_wrapper.* = stmt;
             wrapped_stmt = statement_wrapper;
         }
 
-        return PrepareFirstResult{
+        return .{
             .statement = wrapped_stmt,
-            .tail_idx = tail_idx,
+            .tail_idx = result.tail_idx,
         };
     }
 
