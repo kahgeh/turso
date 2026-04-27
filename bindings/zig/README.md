@@ -126,6 +126,11 @@ pub fn main() !void {
 }
 ```
 
+## API Layers
+
+- Zig-native layer: use `turso.Builder`, `turso.Database`, `turso.Connection`, `turso.Statement`, `Connection.rows()`, and owned-copy helpers for normal application code.
+- Raw C ABI layer: use `turso.raw` only when integrating with C-level handles or validating ABI behavior. It mirrors `sdk-kit/turso.h` and does not add Zig ownership policy.
+
 ## Ownership Rules
 
 - `Database`, `Connection`, and `Statement` handles must be explicitly deinitialized.

@@ -1,4 +1,5 @@
-// C FFI bindings imported directly from sdk-kit/turso.h for ABI validation.
+// Raw C FFI bindings imported directly from sdk-kit/turso.h.
+// This module intentionally mirrors the ABI and does not manage ownership.
 const raw_c = @cImport({
     @cInclude("turso.h");
 });

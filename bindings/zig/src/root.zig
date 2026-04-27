@@ -1,7 +1,8 @@
 // Turso Zig Binding root module.
-// Import this package as `@import("turso")` and use the re-exported modules below.
+// Import this package as `@import("turso")` and prefer the Zig-native handle
+// types re-exported below. `raw` exposes the exact C ABI for interop.
 
-pub const c = @import("c.zig");
+pub const raw = @import("c.zig");
 pub const status = @import("status.zig");
 pub const err = @import("error.zig");
 pub const db = @import("database.zig");
